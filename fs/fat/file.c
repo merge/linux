@@ -153,6 +153,168 @@ static int fat_ioctl_fitrim(struct inode *inode, unsigned long arg)
 	return 0;
 }
 
+/* protect access to the FAT fs label */
+DEFINE_MUTEX(label_mutex);
+
+static int fat_set_directory_volume_label(struct file *file, char *label)
+{
+	struct msdos_dir_entry *de;
+	struct buffer_head *bh;
+	struct inode *root_inode = file_inode(file);
+	struct super_block *sb = root_inode->i_sb;
+	struct msdos_sb_info *sbi = MSDOS_SB(sb);
+	int err;
+	int offset;
+	sector_t blocknr;
+	loff_t i_pos;
+
+	err = 0;
+	i_pos = fat_i_pos_read(sbi, root_inode);
+	if (!i_pos)
+		return 0;
+
+	/* code found in inode.c */
+	fat_get_blknr_offset(sbi, i_pos, &blocknr, &offset);
+	bh = sb_bread(sb, blocknr);
+	if (!bh) {
+		fat_msg(sb, KERN_ERR,
+			"unable to read inode block for updating (i_pos %lld)",
+			i_pos);
+		return -EIO;
+	}
+
+	de = NULL;
+	err = fat_get_label_entry(root_inode, &bh, &de);
+	if (err)
+		return err;
+
+	if (label) {
+		fat_msg(sb, KERN_INFO,
+			"rename directory label from %.11s to %.11s",
+			de->name, label);
+		mutex_lock(&label_mutex);
+		strncpy(de->name, label, MSDOS_NAME);
+		mark_buffer_dirty(bh);
+		sync_dirty_buffer(bh);
+		brelse(bh);
+		mutex_unlock(&label_mutex);
+	} else {
+		fat_msg(sb, KERN_INFO, "directory label is %.11s", de->name);
+	}
+
+	return 0;
+}
+
+static int fat_set_partition_volume_label(struct file *file, char *label)
+{
+	struct fat_boot_sector *b;
+	struct buffer_head *bh;
+	struct inode *inode = file_inode(file);
+	struct super_block *sb = inode->i_sb;
+	struct msdos_sb_info *sbi = inode->i_sb->s_fs_info;
+
+	bh = sb_bread(sb, 0);
+	if (!bh) {
+		fat_msg(sb, KERN_ERR, "unable to read boot sector\n");
+		return -EIO;
+	}
+	b = (struct fat_boot_sector *)bh->b_data;
+
+	if (sbi->fat_bits == 32) {
+		if (label) {
+			fat_msg(sb, KERN_INFO,
+				"rename partition label from %.11s to %.11s",
+				b->fat32.vol_label, label);
+
+			mutex_lock(&MSDOS_SB(sb)->s_lock);
+			b->fat32.state |= FAT_STATE_DIRTY;
+			memcpy(b->fat32.vol_label, label, MSDOS_NAME);
+			mutex_unlock(&MSDOS_SB(sb)->s_lock);
+		} else {
+			b->fat32.state &= ~FAT_STATE_DIRTY;
+			fat_msg(sb, KERN_INFO, "partition label is %.11s",
+				b->fat32.vol_label);
+		}
+	} else {
+		if (label) {
+			fat_msg(sb, KERN_INFO,
+				"rename partition label from %.11s to %.11s ",
+				b->fat16.vol_label, label);
+
+			mutex_lock(&MSDOS_SB(sb)->s_lock);
+			b->fat32.state |= FAT_STATE_DIRTY;
+			memcpy(b->fat32.vol_label, label, MSDOS_NAME);
+			mutex_unlock(&MSDOS_SB(sb)->s_lock);
+		} else {
+			b->fat32.state &= ~FAT_STATE_DIRTY;
+			fat_msg(sb, KERN_INFO, "partition label is %.11s",
+				b->fat16.vol_label);
+		}
+	}
+	mark_buffer_dirty(bh);
+	sync_dirty_buffer(bh);
+	brelse(bh);
+
+	return 0;
+}
+
+static int fat_ioctl_set_label(struct file *file, u32 __user *user_attr)
+{
+	struct inode *inode = file_inode(file);
+	struct super_block *sb = inode->i_sb;
+	unsigned char newlabel[MSDOS_NAME + 1];
+	char *label;
+	int err;
+	int i;
+	int len;
+	unsigned char c;
+
+	if (!user_attr) {
+		label = NULL;
+		goto print_only;
+	}
+
+	label = newlabel;
+	err = copy_from_user(label, (void *)user_attr, MSDOS_NAME);
+	if (err) {
+		fat_msg(sb, KERN_ERR,
+			"copy_from_user failed %d bytes not copied\n", err);
+		return -EFAULT;
+	}
+	label[MSDOS_NAME] = '\0';
+	len = strlen(label);
+
+	if (len == 0) {
+		strncpy(label, "NO NAME    ", MSDOS_NAME);
+	} else {
+		for (i = 0; i < len; i++) {
+			c = label[i];
+			if ((c < 'a' || c > 'z') && (c < 'A' || c > 'Z')) {
+				if ((c < '0' || c > '9') && c != 0x20)
+					return -EINVAL;
+			}
+		}
+	}
+
+print_only:
+	err = fat_set_directory_volume_label(file, label);
+	if (err == -ENOENT) {
+		fat_msg(sb, KERN_ERR, "no label entry. please reformat\n");
+		strncpy(label, "NO NAME    ", MSDOS_NAME);
+	} else if (err) {
+		fat_msg(sb, KERN_ERR, "error setting directory label\n");
+		return err;
+	}
+
+	err = fat_set_partition_volume_label(file, label);
+	if (err) {
+		fat_msg(sb, KERN_ERR, "error setting partition label\n");
+		return err;
+	}
+
+	return 0;
+}
+
 long fat_generic_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct inode *inode = file_inode(filp);
@@ -167,6 +329,8 @@ long fat_generic_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return fat_ioctl_get_volume_id(inode, user_attr);
 	case FITRIM:
 		return fat_ioctl_fitrim(inode, arg);
+	case VFAT_IOCTL_SET_LABEL:
+		return fat_ioctl_set_label(filp, user_attr);
 	default:
 		return -ENOTTY;	/* Inappropriate ioctl for device */
 	}

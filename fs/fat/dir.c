@@ -1412,3 +1412,25 @@ error_remove:
 	return err;
 }
 EXPORT_SYMBOL_GPL(fat_add_entries);
+
+/* found at https://lwn.net/Articles/343565/ */
+int fat_get_label_entry(struct inode *root_inode, struct buffer_head **bh,
+			struct msdos_dir_entry **de)
+{
+	loff_t pos;
+
+	if (WARN_ON(root_inode->i_ino != MSDOS_ROOT_INO))
+		return -EINVAL;
+
+	pos = 0;
+	*bh = NULL;
+	while (fat_get_entry(root_inode, &pos, bh, de) >= 0) {
+		/* volume label: note that it is not enough to check only
+		 * whether the ATTR_VOLUME bit is set, since this would yield
+		 * true on any vfat extended entry.
+		 */
+		if ((*de)->attr != ATTR_EXT && ((*de)->attr & ATTR_VOLUME))
+			return 0;
+	}
+	return -ENOENT;
+}
