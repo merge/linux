@@ -83,6 +83,22 @@ struct rfkill * __must_check rfkill_alloc(const char *name,
 					  void *ops_data);
 
 /**
+ * devm_rfkill_alloc - resource managed rfkill_alloc()
+ * @name: name of the struct -- the string is not copied internally
+ * @parent: device that has rf switch on it
+ * @type: type of the switch (RFKILL_TYPE_*)
+ * @ops: rfkill methods
+ * @ops_data: data passed to each method
+ *
+ * See rfkill_alloc() for more information.
+ */
+struct rfkill * __must_check devm_rfkill_alloc(const char *name,
+					       struct device *parent,
+					       const enum rfkill_type type,
+					       const struct rfkill_ops *ops,
+					       void *ops_data);
+
+/**
  * rfkill_register - Register a rfkill structure.
  * @rfkill: rfkill structure to be registered
  *

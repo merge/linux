@@ -990,6 +990,37 @@ struct rfkill * __must_check rfkill_alloc(const char *name,
 }
 EXPORT_SYMBOL(rfkill_alloc);
 
+static void devm_rfkill_consume(struct device *dev, void *res)
+{
+	struct rfkill *rfkill = *(struct rfkill **)res;
+
+	rfkill_destroy(rfkill);
+}
+
+struct rfkill * __must_check devm_rfkill_alloc(const char *name,
+					       struct device *parent,
+					       const enum rfkill_type type,
+					       const struct rfkill_ops *ops,
+					       void *ops_data)
+{
+	struct rfkill **ptr, *rfkill;
+
+	ptr = devres_alloc(devm_rfkill_consume, sizeof(*ptr), GFP_KERNEL);
+	if (!ptr)
+		return ERR_PTR(-ENOMEM);
+
+	rfkill = rfkill_alloc(name, parent, type, ops, ops_data);
+	if (!IS_ERR(rfkill)) {
+		*ptr = rfkill;
+		devres_add(parent, ptr);
+	} else {
+		devres_free(ptr);
+	}
+
+	return rfkill;
+}
+EXPORT_SYMBOL_GPL(devm_rfkill_alloc);
+
 static void rfkill_poll(struct work_struct *work)
 {
 	struct rfkill *rfkill;
