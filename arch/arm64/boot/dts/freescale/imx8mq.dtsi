@@ -1552,11 +1552,15 @@
 		ddrc: memory-controller@3d400000 {
 			compatible = "fsl,imx8mq-ddrc", "fsl,imx8m-ddrc";
 			reg = <0x3d400000 0x400000>;
-			clock-names = "core", "pll", "alt", "apb";
+			clock-names = "core", "pll", "alt", "apb", "main_axi", "ahb", "osc_25m", "sys2_pll_333m";
 			clocks = <&clk IMX8MQ_CLK_DRAM_CORE>,
 				 <&clk IMX8MQ_DRAM_PLL_OUT>,
 				 <&clk IMX8MQ_CLK_DRAM_ALT>,
-				 <&clk IMX8MQ_CLK_DRAM_APB>;
+				 <&clk IMX8MQ_CLK_DRAM_APB>,
+				 <&clk IMX8MQ_CLK_MAIN_AXI>,
+				 <&clk IMX8MQ_CLK_AHB>,
+				 <&clk IMX8MQ_CLK_25M>,
+				 <&clk IMX8MQ_SYS2_PLL_333M>;
 		};
 
 		ddr-pmu@3d800000 {
