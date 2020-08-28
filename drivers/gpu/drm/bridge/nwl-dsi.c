@@ -138,6 +138,7 @@ struct nwl_dsi {
 	struct nwl_dsi_transfer *xfer;
 	struct list_head valid_modes;
 	u32 clk_drop_lvl;
+	bool use_dcss;
 };
 
 static const struct regmap_config nwl_dsi_regmap_config = {
@@ -1098,10 +1099,14 @@ static int nwl_dsi_bridge_atomic_check(struct drm_bridge *bridge,
 	if (config->crtc_clock)
 		adjusted_mode->crtc_clock = config->crtc_clock / 1000;
 
-
-	/* At least LCDIF + NWL needs active high sync */
-	adjusted_mode->flags |= (DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC);
-	adjusted_mode->flags &= ~(DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC);
+	if (!dsi->use_dcss) {
+		/* At least LCDIF + NWL needs active high sync */
+		adjusted_mode->flags |= (DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC);
+		adjusted_mode->flags &= ~(DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC);
+	} else {
+		adjusted_mode->flags &= ~(DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC);
+		adjusted_mode->flags |= (DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC);
+	}
 
 	/*
 	 * Do a full modeset if crtc_state->active is changed to be true.
@@ -1396,6 +1401,9 @@ static int nwl_dsi_select_input(struct nwl_dsi *dsi)
 		DRM_DEV_ERROR(dsi->dev, "Failed to select input: %d\n", ret);
 
 	of_node_put(remote);
+
+	dsi->use_dcss = use_dcss;
+
 	return ret;
 }
 
