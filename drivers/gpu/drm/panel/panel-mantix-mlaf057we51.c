@@ -39,6 +39,14 @@ struct mantix {
 	const struct drm_display_mode *default_mode;
 };
 
+static bool panel_prepared;
+
+bool mantix_panel_prepared(void)
+{
+  return panel_prepared;
+}
+EXPORT_SYMBOL_GPL(mantix_panel_prepared);
+
 static inline struct mantix *panel_to_mantix(struct drm_panel *panel)
 {
 	return container_of(panel, struct mantix, panel);
@@ -146,6 +154,8 @@ static int mantix_unprepare(struct drm_panel *panel)
 	/* T14 */
 	msleep(50);
 
+	panel_prepared = false;
+
 	return 0;
 }
 
@@ -186,6 +196,8 @@ static int mantix_prepare(struct drm_panel *panel)
 
 	/* T6 */
 	msleep(50);
+
+	panel_prepared = true;
 
 	return 0;
 }
