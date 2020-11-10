@@ -41,12 +41,18 @@
 #include "rsi_main.h"
 
 /* SDIO VENDOR ID for RSI*/
+#ifndef SDIO_VENDOR_ID_RSI
 #define SDIO_VENDOR_ID_RSI              0x041B
+#endif
 
 /* Device ID for RS9113 */
+#ifndef SDIO_DEVICE_ID_RSI_9113
 #define SDIO_DEVICE_ID_RSI_9113         0x9330
+#endif
 /* Device ID for RS9116 */
+#ifndef SDIO_DEVICE_ID_RSI_9116
 #define SDIO_DEVICE_ID_RSI_9116         0x9116
+#endif
 
 /* Interrupt Bit Related Macros */
 #define PKT_BUFF_AVAILABLE		1
