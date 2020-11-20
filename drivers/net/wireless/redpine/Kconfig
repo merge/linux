@@ -74,14 +74,6 @@ config REDPINE_P2P
 	  This option enables the Wi-Fi Direct support in rsi drivers.
 	  Select Y, if you have to use this feature.
 
-config HW_SCAN_OFFLOAD 
-	bool "Redpine Signals Hardware scan offload feature"
-	depends on REDPINE_91X
-	default n
-	help
-	  This option enables the hardware scan offload option in rsi drivers.
-	  Select Y, if you have to use this feature.
-
 config CARACALLA_BOARD 
 	bool "Redpine device support on Caracalla board"
 	depends on REDPINE_91X
@@ -108,10 +100,18 @@ config RS9116_FLASH_MODE
 
 config RS9116_PURISM
 	bool "Redpine Signals PURISM FW support"
-	depends on REDPINE_91X && REDPINE_COEX_MODE
+	depends on REDPINE_91X && REDPINE_COEX_MODE && RS9116_FLASH_MODE
 	default n
 	help
 	  This option enables the PURISM FW support.
+	  Say Y if you want to use this feature.
+
+config REDPINE_LOAD_FW_FROM_FLASH_ONLY
+	bool "Redpine Signals load fw from flash only"
+	depends on REDPINE_91X && REDPINE_COEX_MODE && RS9116_FLASH_MODE
+	default n
+	help
+	  This option enables the load fw from flash only mode.
 	  Say Y if you want to use this feature.
 
 endif # WLAN_VENDOR_REDPINE
