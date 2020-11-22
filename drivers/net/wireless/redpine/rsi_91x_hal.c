@@ -1893,7 +1893,7 @@ int redpine_hal_device_init(struct rsi_hw *adapter)
 		common->zb_fsm_state = ZB_DEVICE_NOT_READY;
 		break;
 	default:
-#if !defined(CONFIG_CARACALLA_BOARD) || !defined(CONFIG_RS9116_PURISM)
+#if !defined(CONFIG_CARACALLA_BOARD) && !defined(CONFIG_RS9116_PURISM)
 		common->oper_mode = 1;
 		common->coex_mode = 1;
 #else
