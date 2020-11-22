@@ -403,7 +403,10 @@ void rsi_print_version(struct rsi_common *common)
 	redpine_dbg(ERR_ZONE, "================ RSI Version Info ==============\n");
 	redpine_dbg(ERR_ZONE, "================================================\n");
 	if (adapter->device_model == RSI_DEV_9116) {
-		redpine_dbg(ERR_ZONE, "FW Version\t:  %04x.%x.%x.%x.%04x\n",
+		redpine_dbg(ERR_ZONE, "FW Version\t: %d.%d.%d.%d\n",
+			common->lmac_ver.major, common->lmac_ver.minor,
+			common->lmac_ver.release_num,common->lmac_ver.patch_num);
+		redpine_dbg(ERR_ZONE, "RSI FW Version\t:  %04x.%x.%x.%x.%04x\n",
 			common->lmac_ver.chip_id, common->lmac_ver.major,
 			common->lmac_ver.minor, common->lmac_ver.customer_id,
 			common->lmac_ver.build_id);
