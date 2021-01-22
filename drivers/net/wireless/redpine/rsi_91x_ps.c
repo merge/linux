@@ -101,7 +101,7 @@ void redpine_default_ps_params(struct rsi_hw *adapter)
 	ps_info->num_bcns_per_lis_int = 0;
 	ps_info->dtim_interval_duration = 0;
 	ps_info->num_dtims_per_sleep = 1;
-	ps_info->deep_sleep_wakeup_period = 100;
+	ps_info->deep_sleep_wakeup_period = 10;
 	ps_info->uapsd_wakeup_period = RSI_UAPSD_WAKEUP_PERIOD;
 }
 EXPORT_SYMBOL_GPL(redpine_default_ps_params);
