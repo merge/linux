@@ -680,7 +680,7 @@ static void s5k5baf_i2c_write2(struct s5k5baf *state, u16 addr, u16 val)
 
 	ret = i2c_transfer(c->adapter, msg, 1);
 
-	v4l2_dbg(3, debug, c, "i2c_write to 0x%04x : 0x%02x\n", addr, val);
+	v4l2_dbg(3, debug, c, "i2c_write to 0x%04x : 0x%04x\n", addr, val);
 
 	if (ret != 1) {
 		v4l2_err(c, "i2c_write: error during transfer (%d)\n", ret);
