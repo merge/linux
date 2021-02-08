@@ -644,6 +644,7 @@ static void s5k5baf_i2c_write(struct s5k5baf *state, u16 addr, u8 val)
 		  .len = 3, .buf = buf },
 	};
 	int ret;
+	int actual;
 
 	if (state->error)
 		return;
@@ -657,7 +658,7 @@ static void s5k5baf_i2c_write(struct s5k5baf *state, u16 addr, u8 val)
 		state->error = ret;
 	}
 	// Not sure if actually needed. So really debugging code at the moment.
-	int actual = s5k5baf_i2c_read(state, addr);
+	actual = s5k5baf_i2c_read(state, addr);
 	if (actual != val) {
 		v4l2_err(c, "i2c_write: value didn't stick. 0x%04x = 0x%02x != 0x%02x", addr, actual, val);
 	}
@@ -1013,7 +1014,7 @@ static int s5k3l6_try_cis_format(struct v4l2_mbus_framefmt *mf)
 			      S5K5BAF_CIS_HEIGHT, 1, 0);
 */
 
-	struct s5k3l6_frame *mode = v4l2_find_nearest_size(s5k3l6_frames,
+	const struct s5k3l6_frame *mode = v4l2_find_nearest_size(s5k3l6_frames,
 				      ARRAY_SIZE(s5k3l6_frames),
 				      width, height,
 				      mf->width, mf->height);
