@@ -229,16 +229,6 @@ module_param(debug, int, 0644);
 
 #define REG_ARR_CCM(n)			(0x2800 + 36 * (n))
 
-static const char * const s5k5baf_supply_names[] = {
-	"vddio",	/* I/O power supply 1.8V (1.65V to 1.95V)
-			   or 2.8V (2.5V to 3.1V) */
-	"vdda",		/* Analog power supply 2.8V (2.6V to 3.0V) */
-	"vddreg",	/* Regulator input power supply 1.8V (1.7V to 1.9V)
-			   or 2.8V (2.6V to 3.0) */
-};
-#define S5K5BAF_NUM_SUPPLIES 1
-// #define S5K5BAF_NUM_SUPPLIES ARRAY_SIZE(s5k5baf_supply_names)
-
 struct s5k3l6_reg {
 	u16 address;
 	u16 val;
@@ -521,7 +511,7 @@ struct s5k5baf {
 	struct s5k5baf_gpio gpios[NUM_GPIOS];
 	enum v4l2_mbus_type bus_type;
 	u8 nlanes;
-	struct regulator_bulk_data supplies[S5K5BAF_NUM_SUPPLIES];
+	struct regulator *supply;
 
 	struct clk *clock;
 	u32 mclk_frequency;
@@ -831,7 +821,7 @@ static int s5k5baf_power_on(struct s5k5baf *state)
 {
 	int ret;
 
-	ret = regulator_bulk_enable(S5K5BAF_NUM_SUPPLIES, state->supplies);
+	ret = regulator_enable(state->supply);
 	if (ret < 0)
 		goto err;
 
@@ -851,7 +841,8 @@ static int s5k5baf_power_on(struct s5k5baf *state)
 	return 0;
 
 err_reg_dis:
-	regulator_bulk_disable(S5K5BAF_NUM_SUPPLIES, state->supplies);
+	if (regulator_is_enabled(state->supply))
+		regulator_disable(state->supply);
 err:
 	v4l2_err(&state->sd, "%s() failed (%d)\n", __func__, ret);
 	return ret;
@@ -870,8 +861,10 @@ static int s5k5baf_power_off(struct s5k5baf *state)
 	if (!IS_ERR(state->clock))
 		clk_disable_unprepare(state->clock);
 
-	ret = regulator_bulk_disable(S5K5BAF_NUM_SUPPLIES,
-					state->supplies);
+	if (!regulator_is_enabled(state->supply))
+		return 0;
+
+	ret = regulator_disable(state->supply);
 	if (ret < 0)
 		v4l2_err(&state->sd, "failed to disable regulators\n");
 	else
@@ -1560,17 +1553,12 @@ static int s5k5baf_configure_subdevs(struct s5k5baf *state,
 static int s5k5baf_configure_regulators(struct s5k5baf *state)
 {
 	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
-	int ret;
-	int i;
 
-	for (i = 0; i < S5K5BAF_NUM_SUPPLIES; i++)
-		state->supplies[i].supply = s5k5baf_supply_names[i];
-
-	ret = devm_regulator_bulk_get(&c->dev, S5K5BAF_NUM_SUPPLIES,
-				      state->supplies);
-	if (ret < 0)
+	state->supply = devm_regulator_get(&c->dev, "vddio");
+	if (IS_ERR(state->supply))
 		v4l2_err(c, "failed to get regulators\n");
-	return ret;
+
+	return 0;
 }
 
 static int s5k5baf_probe(struct i2c_client *c)
