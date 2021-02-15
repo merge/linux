@@ -1211,16 +1211,16 @@ static int s5k5baf_s_ctrl(struct v4l2_ctrl *ctrl)
 		s5k3l6_hw_set_test_pattern(state, ctrl->val);
 		break;
 	case V4L2_CID_TEST_PATTERN_RED:
-		s5k5baf_i2c_write2(state, S5K3L6_REG_TEST_DATA_RED, (u16)ctrl->val & 0x3f);
+		s5k5baf_i2c_write2(state, S5K3L6_REG_TEST_DATA_RED, (u16)ctrl->val & 0x3ff);
 		break;
 	case V4L2_CID_TEST_PATTERN_GREENR:
-		s5k5baf_i2c_write2(state, S5K3L6_REG_TEST_DATA_GREENR, (u16)ctrl->val & 0x3f);
+		s5k5baf_i2c_write2(state, S5K3L6_REG_TEST_DATA_GREENR, (u16)ctrl->val & 0x3ff);
 		break;
 	case V4L2_CID_TEST_PATTERN_BLUE:
-		s5k5baf_i2c_write2(state, S5K3L6_REG_TEST_DATA_BLUE, (u16)ctrl->val & 0x3f);
+		s5k5baf_i2c_write2(state, S5K3L6_REG_TEST_DATA_BLUE, (u16)ctrl->val & 0x3ff);
 		break;
 	case V4L2_CID_TEST_PATTERN_GREENB:
-		s5k5baf_i2c_write2(state, S5K3L6_REG_TEST_DATA_GREENB, (u16)ctrl->val & 0x3f);
+		s5k5baf_i2c_write2(state, S5K3L6_REG_TEST_DATA_GREENB, (u16)ctrl->val & 0x3ff);
 		break;
 	}
 unlock:
