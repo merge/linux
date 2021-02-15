@@ -843,7 +843,7 @@ static int s5k5baf_power_on(struct s5k5baf *state)
 	if (ret < 0)
 		goto err_reg_dis;
 
-	v4l2_dbg(1, debug, &state->sd, "clock frequency: %ld\n",
+	v4l2_dbg(1, debug, &state->sd, "ON. clock frequency: %ld\n",
 		 clk_get_rate(state->clock));
 
 	usleep_range(50, 100);
@@ -874,7 +874,8 @@ static int s5k5baf_power_off(struct s5k5baf *state)
 					state->supplies);
 	if (ret < 0)
 		v4l2_err(&state->sd, "failed to disable regulators\n");
-
+	else
+		v4l2_dbg(1, debug, &state->sd, "OFF\n");
 	return 0;
 }
 
@@ -1079,8 +1080,6 @@ static int s5k5baf_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config
 	struct s5k5baf *state = to_s5k5baf(sd);
 	int pixfmt_idx = 0;
 	mf->field = V4L2_FIELD_NONE;
-
-	v4l2_err(sd, "set_fmt %p", (void*)sd);
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		*v4l2_subdev_get_try_format(sd, cfg, fmt->pad) = *mf;
@@ -1652,7 +1651,7 @@ static int s5k5baf_probe(struct i2c_client *c)
 	ret = s5k5baf_initialize_ctrls(state);
 	if (ret < 0)
 		goto err_me;
-	v4l2_info(&state->sd, "pre-register sd %p ctrls %p",
+	v4l2_dbg(1, debug, &state->sd, "pre-register sd %p ctrls %p",
 		  (void*)&state->sd, (void*)&state->sd.ctrl_handler);
 	ret = v4l2_async_register_subdev(&state->sd);
 	if (ret < 0)
