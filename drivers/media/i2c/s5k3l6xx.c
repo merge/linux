@@ -48,6 +48,7 @@ module_param(debug, int, 0644);
 #define S5K3L6_REG_FRAME_COUNT		0x0005
 
 #define S5K3L6_REG_TEST_PATTERN_MODE	0x0601
+#define S5K3L6_TEST_PATTERN_SOLID_COLOR	0x01
 #define S5K3L6_TEST_PATTERN_COLOR_BAR	0x02
 
 #define S5K3L6_REG_TEST_DATA_RED	0x0602
@@ -542,6 +543,11 @@ struct s5k5baf {
 	u16 auto_alg;
 
 	struct s5k5baf_ctrls ctrls;
+
+	/* Solid color test pattern is in effect,
+	 * write needs to happen after color choice writes.
+	 * It doesn't seem that controls guarantee any order of application. */
+	unsigned int apply_test_solid:1;
 
 	unsigned int streaming:1;
 	unsigned int apply_cfg:1;
@@ -1199,20 +1205,29 @@ static int s5k5baf_s_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 */
 	case V4L2_CID_TEST_PATTERN:
+		state->apply_test_solid = (ctrl->val == S5K3L6_TEST_PATTERN_SOLID_COLOR);
 		v4l2_err(sd, "Setting pattern %d", ctrl->val);
 		s5k3l6_hw_set_test_pattern(state, ctrl->val);
 		break;
 	case V4L2_CID_TEST_PATTERN_RED:
 		s5k5baf_i2c_write2(state, S5K3L6_REG_TEST_DATA_RED, (u16)ctrl->val & 0x3ff);
+		if (state->apply_test_solid)
+			s5k3l6_hw_set_test_pattern(state, S5K3L6_TEST_PATTERN_SOLID_COLOR);
 		break;
 	case V4L2_CID_TEST_PATTERN_GREENR:
 		s5k5baf_i2c_write2(state, S5K3L6_REG_TEST_DATA_GREENR, (u16)ctrl->val & 0x3ff);
+		if (state->apply_test_solid)
+			s5k3l6_hw_set_test_pattern(state, S5K3L6_TEST_PATTERN_SOLID_COLOR);
 		break;
 	case V4L2_CID_TEST_PATTERN_BLUE:
 		s5k5baf_i2c_write2(state, S5K3L6_REG_TEST_DATA_BLUE, (u16)ctrl->val & 0x3ff);
+		if (state->apply_test_solid)
+			s5k3l6_hw_set_test_pattern(state, S5K3L6_TEST_PATTERN_SOLID_COLOR);
 		break;
 	case V4L2_CID_TEST_PATTERN_GREENB:
 		s5k5baf_i2c_write2(state, S5K3L6_REG_TEST_DATA_GREENB, (u16)ctrl->val & 0x3ff);
+		if (state->apply_test_solid)
+			s5k3l6_hw_set_test_pattern(state, S5K3L6_TEST_PATTERN_SOLID_COLOR);
 		break;
 	}
 unlock:
