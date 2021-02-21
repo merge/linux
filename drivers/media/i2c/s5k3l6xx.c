@@ -942,11 +942,8 @@ static int s5k5baf_s_stream(struct v4l2_subdev *sd, int on)
 	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
 	int ret = 0;
 
-	mutex_lock(&state->lock);
-
 	if (state->streaming == !!on) {
-		ret = 0;
-		goto out;
+		return 0;
 	}
 
 	if (on) {
@@ -955,8 +952,10 @@ static int s5k5baf_s_stream(struct v4l2_subdev *sd, int on)
 			dev_err(&c->dev, "%s: pm_runtime_get failed: %d\n",
 				__func__, ret);
 			pm_runtime_put_noidle(&c->dev);
-			goto out;
+			return ret;
 		}
+
+		mutex_lock(&state->lock);
 
 		//ret = s5k5baf_hw_set_crop_rects(state);
 		s5k3l6_hw_set_config(state);
@@ -964,6 +963,7 @@ static int s5k5baf_s_stream(struct v4l2_subdev *sd, int on)
 			goto out;
 		s5k3l6_hw_set_stream(state, 1);
 	} else {
+		mutex_lock(&state->lock);
 		s5k3l6_hw_set_stream(state, 0);
 		pm_runtime_mark_last_busy(&c->dev);
 		pm_runtime_put_autosuspend(&c->dev);
@@ -1147,22 +1147,24 @@ static int s5k5baf_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct v4l2_subdev *sd = ctrl_to_sd(ctrl);
 	struct s5k5baf *state = to_s5k5baf(sd);
 	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
-	int ret;
+	int in_use;
+	int ret = 0;
 
 	v4l2_dbg(1, debug, sd, "ctrl: %s, value: %d\n", ctrl->name, ctrl->val);
 
 	mutex_lock(&state->lock);
 
-	ret = pm_runtime_get_sync(&c->dev);
-	if (ret < 0) {
-		dev_err(&c->dev, "%s: pm_runtime_get failed: %d\n",
-			__func__, ret);
-		pm_runtime_put_noidle(&c->dev);
-		return ret;
-	}
-
+	// Don't do anything when powered off.
+	// It will get called again when powering up.
 	if (state->power == 0)
 		goto unlock;
+	/* v4l2_ctrl_handler_setup() function may not be used in the device’s runtime PM
+	 * runtime_resume callback, as it has no way to figure out the power state of the device.
+	 * https://www.kernel.org/doc/html/latest/driver-api/media/camera-sensor.html#control-framework
+	 * Okay, so what's the right way to do it? So far relying on state->power.
+	 */
+
+	in_use = pm_runtime_get_if_in_use(&c->dev);
 
 	switch (ctrl->id) { /*
 	case V4L2_CID_AUTO_WHITE_BALANCE:
@@ -1237,12 +1239,13 @@ static int s5k5baf_s_ctrl(struct v4l2_ctrl *ctrl)
 			s5k3l6_hw_set_test_pattern(state, S5K3L6_TEST_PATTERN_SOLID_COLOR);
 		break;
 	}
-unlock:
 	ret = s5k5baf_clear_error(state);
 
-	pm_runtime_mark_last_busy(&c->dev);
-	pm_runtime_put_autosuspend(&c->dev);
-
+	if (in_use) { // came from other context than resume, need to manage PM
+		pm_runtime_mark_last_busy(&c->dev);
+		pm_runtime_put_autosuspend(&c->dev);
+	}
+unlock:
 	mutex_unlock(&state->lock);
 	return ret;
 }
@@ -1411,7 +1414,7 @@ static int __maybe_unused s5k3l6_suspend(struct device *dev)
 	if (state->streaming)
 		s5k3l6_hw_set_stream(state, 0);
 
-	s5k5baf_power_off(state);
+	s5k5baf_set_power(sd, FALSE);
 
 	return 0;
 }
@@ -1425,7 +1428,7 @@ static int __maybe_unused s5k3l6_resume(struct device *dev)
 
 	dev_dbg(dev, "%s\n", __func__);
 
-	ret = s5k5baf_power_on(state);
+	ret = s5k5baf_set_power(sd, TRUE);
 	msleep(500);
 
 	if (state->streaming)
