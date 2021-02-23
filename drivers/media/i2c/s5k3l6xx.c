@@ -560,7 +560,7 @@ struct s5k5baf {
 	unsigned int valid_auto_alg:1;
 	unsigned int power;
 
-	u8 debug_frame; // Sets empty debug frame.
+	u8 debug_frame; // Enables any size, sets empty debug frame.
 };
 
 static const struct s5k5baf_pixfmt s5k5baf_formats[] = {
@@ -772,7 +772,7 @@ static void s5k5baf_hw_sync_cfg(struct s5k5baf *state)
 }
 #endif
 
-static int s5k3l6_find_pixfmt(struct v4l2_mbus_framefmt *mf)
+static int s5k3l6_find_pixfmt(const struct v4l2_mbus_framefmt *mf)
 {
 	int i, c = -1;
 
@@ -1048,10 +1048,11 @@ static int s5k3l6_try_cis_format(struct v4l2_mbus_framefmt *mf)
 				      ARRAY_SIZE(s5k3l6_frames),
 				      width, height,
 				      mf->width, mf->height);
-	mf->width = mode->width;
-	mf->height = mode->height;
+	struct v4l2_mbus_framefmt candidate = *mf;
+	candidate.width = mode->width;
+	candidate.height = mode->height;
 
-	pixfmt = s5k3l6_find_pixfmt(mf);
+	pixfmt = s5k3l6_find_pixfmt(&candidate);
 	if (pixfmt < 0)
 		return pixfmt;
 
@@ -1105,6 +1106,7 @@ static int s5k5baf_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config
 
 	if (state->debug_frame) {
 		state->frame_fmt = &s5k3l6_frame_debug;
+		// Keep frame width/height as requested.
 	} else {
 		pixfmt_idx = s5k3l6_try_cis_format(mf);
 		if (pixfmt_idx == -1) {
@@ -1113,11 +1115,12 @@ static int s5k5baf_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config
 			return -EINVAL; // could not find the format. Unsupported
 		}
 		state->frame_fmt = &s5k3l6_frames[pixfmt_idx];
+		mf->width = state->frame_fmt->width;
+		mf->height = state->frame_fmt->height;
 	}
+
 	mf->code = state->frame_fmt->code;
 	mf->colorspace = V4L2_COLORSPACE_RAW;
-	mf->width = state->frame_fmt->width;
-	mf->height = state->frame_fmt->height;
 
 	mutex_unlock(&state->lock);
 	return 0;
@@ -1694,8 +1697,8 @@ static int s5k5baf_probe(struct i2c_client *c)
 	state->frame_fmt = &s5k3l6_frames[0];
 
 	d = debugfs_create_dir("s5k3l6", NULL);
-	// When set to 1, then no sensor registers will be set,
-	// except stream on and bits per pixel.
+	// When set to 1, then any frame size is accepted in frame set.
+	// In addition, no sensor registers will be set, except stream on and bits per pixel.
 	state->debug_frame = 0;
 	debugfs_create_u8("debug_frame", S_IRUSR | S_IWUSR, d, &state->debug_frame);
 
