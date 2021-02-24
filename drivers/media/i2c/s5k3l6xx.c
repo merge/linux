@@ -512,6 +512,18 @@ struct s5k5baf_fw {
 	u16 data[];
 };
 
+struct regtable_entry {
+	u16 address;
+	u8 value;
+};
+
+#define REGSTABLE_SIZE 4096
+
+struct regstable {
+	unsigned entry_count;
+	struct regtable_entry entries[REGSTABLE_SIZE];
+};
+
 struct s5k5baf {
 	struct s5k5baf_gpio gpios[NUM_GPIOS];
 	enum v4l2_mbus_type bus_type;
@@ -561,6 +573,9 @@ struct s5k5baf {
 	unsigned int power;
 
 	u8 debug_frame; // Enables any size, sets empty debug frame.
+	/* For debug address temporary value */
+	u16 debug_address;
+	struct regstable debug_regs;
 };
 
 static const struct s5k5baf_pixfmt s5k5baf_formats[] = {
@@ -631,7 +646,7 @@ static inline struct s5k5baf *to_s5k5baf(struct v4l2_subdev *sd)
 	return container_of(sd, struct s5k5baf, sd);
 }
 
-static u8 s5k5baf_i2c_read(struct s5k5baf *state, u16 addr)
+static u8 __s5k3l6_i2c_read(struct s5k5baf *state, u16 addr)
 {
 	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
 	__be16 w;
@@ -650,12 +665,18 @@ static u8 s5k5baf_i2c_read(struct s5k5baf *state, u16 addr)
 	w = cpu_to_be16(addr);
 	ret = i2c_transfer(c->adapter, msg, 2);
 
-	v4l2_dbg(3, debug, c, "i2c_read: 0x%04x : 0x%02x\n", addr, res);
-
 	if (ret != 2) {
 		v4l2_err(c, "i2c_read: error during transfer (%d)\n", ret);
 		state->error = ret;
 	}
+	return res;
+}
+
+static u8 s5k5baf_i2c_read(struct s5k5baf *state, u16 addr)
+{
+	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
+	u8 res = __s5k3l6_i2c_read(state, addr);
+	v4l2_dbg(3, debug, c, "i2c_read: 0x%04x : 0x%02x\n", addr, res);
 	return res;
 }
 
@@ -732,6 +753,24 @@ static void s5k5baf_write(struct s5k5baf *state, u16 addr, u8 val)
 {
 	s5k5baf_i2c_write(state, addr, val);
 }
+
+static void s5k3l6_submit_regstable(struct s5k5baf *state, const struct regstable *regs)
+{
+	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
+	unsigned i;
+	for (i = 0; i < regs->entry_count; i++) {
+		u16 addr = regs->entries[i].address;
+		u8 val = regs->entries[i].value;
+		if (debug >= 5) {
+			u8 res = __s5k3l6_i2c_read(state, addr);
+			if (res != val) {
+				v4l2_dbg(5, debug, c, "overwriting: 0x%04x : 0x%02x\n", addr, res);
+			}
+		}
+		s5k5baf_i2c_write(state, addr, val);
+	}
+}
+
 
 #if 0
 static void s5k5baf_synchronize(struct s5k5baf *state, int timeout, u16 addr)
@@ -818,6 +857,8 @@ static void s5k3l6_hw_set_config(struct s5k5baf *state) {
 	// If the above already enabled streaming (setfile A), we're also in trouble.
 	s5k3l6_submit_regs(state, setstream, ARRAY_SIZE(setstream));
 	s5k5baf_write(state, S5K3L6_REG_LANE_MODE, state->nlanes - 1);
+
+	s5k3l6_submit_regstable(state, &state->debug_regs);
 }
 
 static void s5k3l6_hw_set_test_pattern(struct s5k5baf *state, int id)
@@ -1603,6 +1644,39 @@ static int s5k5baf_configure_regulators(struct s5k5baf *state)
 	return 0;
 }
 
+static int debug_add(void *data, u64 value)
+{
+	struct s5k5baf *state = data;
+	struct regtable_entry entry = {
+		.address = state->debug_address,
+		.value = (u8)value,
+	};
+	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
+	v4l2_dbg(1, debug, c, "debug add override 0x%04x 0x%02x\n", entry.address, entry.value);
+	/* Not sure which error flag to set here.
+	 * EOF is not available. E2BIG seems to be used too. */
+	if (state->debug_regs.entry_count >= REGSTABLE_SIZE)
+		return -EFBIG;
+	if (value != entry.value)
+		return -EINVAL;
+	state->debug_regs.entries[state->debug_regs.entry_count] = entry;
+	state->debug_regs.entry_count++;
+	return 0;
+}
+
+static int debug_clear(void *data, u64 value)
+{
+	struct s5k5baf *state = data;
+	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
+	(void)value;
+	v4l2_dbg(1, debug, c, "debug clear\n");
+	state->debug_regs.entry_count = 0;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_add_ops, NULL, debug_add, "%llx\n");
+DEFINE_SIMPLE_ATTRIBUTE(debug_clear_ops, NULL, debug_clear, "%llu\n");
+
 static int s5k5baf_probe(struct i2c_client *c)
 {
 	struct s5k5baf *state;
@@ -1701,6 +1775,18 @@ static int s5k5baf_probe(struct i2c_client *c)
 	// In addition, no sensor registers will be set, except stream on and bits per pixel.
 	state->debug_frame = 0;
 	debugfs_create_u8("debug_frame", S_IRUSR | S_IWUSR, d, &state->debug_frame);
+
+	/* Can't be bothered to expose the entire register set in one file, so here it is.
+	 * 1. Write u16 as hex to `address`.
+	 * 2. Write u8 as hex to `add_value` and the *address = value will be saved.
+	 * 3. Repeat if needed.
+	 * 4. Reset the device (a suspend cycle will do)
+	 * 5. Take pictures.
+	 * 6. Write `1` to `clear` to erase all the added values.
+	 */
+	debugfs_create_x16("address", S_IRUSR | S_IWUSR, d, &state->debug_address);
+	debugfs_create_file("add_value", S_IWUSR, d, (void*)state, &debug_add_ops);
+	debugfs_create_file("clear", S_IWUSR, d, (void*)state, &debug_clear_ops);
 
 	return 0;
 
