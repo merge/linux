@@ -46,6 +46,7 @@ module_param(debug, int, 0644);
 #define S5K3L6_MANUFACTURER_ID		0x00
 
 #define S5K3L6_REG_FRAME_COUNT		0x0005
+#define S5K3L6_REG_LANE_MODE		0x0114
 
 #define S5K3L6_REG_TEST_PATTERN_MODE	0x0601
 #define S5K3L6_TEST_PATTERN_SOLID_COLOR	0x01
@@ -795,6 +796,7 @@ static void s5k3l6_hw_set_config(struct s5k5baf *state) {
 	// This may mess up PLL settings...
 	// If the above already enabled streaming (setfile A), we're also in trouble.
 	s5k3l6_submit_regs(state, setstream, ARRAY_SIZE(setstream));
+	s5k5baf_write(state, S5K3L6_REG_LANE_MODE, state->nlanes - 1);
 }
 
 static void s5k3l6_hw_set_test_pattern(struct s5k5baf *state, int id)
