@@ -47,6 +47,7 @@ module_param(debug, int, 0644);
 
 #define S5K3L6_REG_FRAME_COUNT		0x0005
 #define S5K3L6_REG_LANE_MODE		0x0114
+#define S5K3L6_REG_ANALOG_GAIN		0x0204 // 2 bytes
 
 #define S5K3L6_REG_TEST_PATTERN_MODE	0x0601
 #define S5K3L6_TEST_PATTERN_SOLID_COLOR	0x01
@@ -490,7 +491,7 @@ struct s5k5baf_ctrls {
 	struct { /* Auto exposure / manual exposure and gain cluster */
 		struct v4l2_ctrl *auto_exp;
 		struct v4l2_ctrl *exposure;
-		struct v4l2_ctrl *gain;
+		struct v4l2_ctrl *analog_gain;
 	};
 };
 
@@ -1206,6 +1207,10 @@ static int s5k5baf_s_ctrl(struct v4l2_ctrl *ctrl)
 			s5k5baf_hw_sync_cfg(state);
 		break;
 */
+	case V4L2_CID_ANALOGUE_GAIN:
+		// Analog gain supported up to 0x200 (16). Gain = register / 32, so 0x20 gives gain 1.
+		s5k5baf_i2c_write2(state, S5K3L6_REG_ANALOG_GAIN, (u16)ctrl->val & 0x3ff);
+		break;
 	case V4L2_CID_TEST_PATTERN:
 		state->apply_test_solid = (ctrl->val == S5K3L6_TEST_PATTERN_SOLID_COLOR);
 		v4l2_err(sd, "Setting pattern %d", ctrl->val);
@@ -1300,9 +1305,11 @@ static int s5k5baf_initialize_ctrls(struct s5k5baf *state)
 	// Exposure time: x 1 us
 	ctrls->exposure = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_EXPOSURE,
 					    0, 6000000U, 1, 100000U);
-	// Total gain: 256 <=> 1x
-	ctrls->gain = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_GAIN,
-					0, 256, 1, 256);
+	*/
+	// Total gain: 32 <=> 1x
+	ctrls->analog_gain = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_ANALOGUE_GAIN,
+					0, 0x200, 1, 0x20);
+	/*
 	v4l2_ctrl_auto_cluster(3, &ctrls->auto_exp, 0, false);
 
 	v4l2_ctrl_new_std_menu(hdl, ops, V4L2_CID_POWER_LINE_FREQUENCY,
