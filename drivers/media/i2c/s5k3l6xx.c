@@ -8,6 +8,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/gpio.h>
@@ -468,6 +469,7 @@ struct s5k5baf_pixfmt {
 };
 
 struct s5k3l6_frame {
+	char *name;
 	u32 width;
 	u32 height;
 	u32 code;
@@ -535,8 +537,9 @@ struct s5k5baf {
 	struct v4l2_rect crop_sink;
 	struct v4l2_rect compose;
 	struct v4l2_rect crop_source;
-	/* index to s5k3l6_frames array */
-	int frame_fmt_idx;
+
+	/* Currently selected frame format */
+	const struct s5k3l6_frame *frame_fmt;
 	/* actual frame interval in 100us */
 	u16 fiv;
 	/* requested frame interval in 100us */
@@ -556,6 +559,8 @@ struct s5k5baf {
 	unsigned int apply_crop:1;
 	unsigned int valid_auto_alg:1;
 	unsigned int power;
+
+	u8 debug_frame; // Sets empty debug frame.
 };
 
 static const struct s5k5baf_pixfmt s5k5baf_formats[] = {
@@ -572,9 +577,23 @@ static const struct s5k5baf_pixfmt s5k3l6_formats[] = {
 	// 10 bit Bayer entry
 };
 
+static const struct s5k3l6_reg no_regs[0] = {};
+
+static const struct s5k3l6_frame s5k3l6_frame_debug = {
+	.name = "debug_empty",
+	.width = 640, .height = 480,
+	.pllregs = no_regs,
+	.pllregcount = 0,
+	.streamregs = no_regs,
+	.streamregcount = 0,
+	.code = MEDIA_BUS_FMT_SBGGR8_1X8,
+};
+
 // Frame sizes are only available in RAW, so this effectively replaces pixfmt.
+// Supported frame configurations.
 static const struct s5k3l6_frame s5k3l6_frames[] = {
 	{
+		.name = "old_half",
 		.width = 2064, .height = 1160,
 		.pllregs = sensor_3l6_pllinfo_B_2064x1160_30fps,
 		.pllregcount = ARRAY_SIZE(sensor_3l6_pllinfo_B_2064x1160_30fps),
@@ -583,6 +602,7 @@ static const struct s5k3l6_frame s5k3l6_frames[] = {
 		.code = MEDIA_BUS_FMT_SBGGR8_1X8,
 	},
 	{
+		.name = "old_full",
 		.width = 4128, .height = 3096,
 		.pllregs = sensor_3l6_pllinfo_A_4128x3096_30fps,
 		.pllregcount = ARRAY_SIZE(sensor_3l6_pllinfo_A_4128x3096_30fps),
@@ -733,7 +753,7 @@ static void s5k5baf_synchronize(struct s5k5baf *state, int timeout, u16 addr)
 #endif
 
 static void s5k3l6_hw_set_clocks(struct s5k5baf *state) {
-	const struct s5k3l6_frame *frame = &s5k3l6_frames[state->frame_fmt_idx];
+	const struct s5k3l6_frame *frame = state->frame_fmt;
 	s5k3l6_submit_regs(state, frame->pllregs, frame->pllregcount);
 }
 
@@ -790,8 +810,8 @@ static const struct s5k3l6_reg setstream[] = {
 };
 
 static void s5k3l6_hw_set_config(struct s5k5baf *state) {
-	const struct s5k3l6_frame *frame_fmt = &s5k3l6_frames[state->frame_fmt_idx];
-	v4l2_err(&state->sd, "Setting frame format %d", state->frame_fmt_idx);
+	const struct s5k3l6_frame *frame_fmt = state->frame_fmt;
+	v4l2_err(&state->sd, "Setting frame format %s", frame_fmt->name);
 	s5k3l6_submit_regs(state, frame_fmt->streamregs, frame_fmt->streamregcount);
 
 	// This may mess up PLL settings...
@@ -1045,8 +1065,6 @@ static int s5k3l6_try_cis_format(struct v4l2_mbus_framefmt *mf)
 static int s5k5baf_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg,
 			  struct v4l2_subdev_format *fmt)
 {
-	struct s5k5baf *state = to_s5k5baf(sd);
-	const struct s5k5baf_pixfmt *pixfmt;
 	struct v4l2_mbus_framefmt *mf;
 
 	v4l2_err(sd, "get_fmt");
@@ -1062,16 +1080,6 @@ static int s5k5baf_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config
 		return 0;
 	}
 	// DEAD
-	v4l2_err(sd, "PAD IS NOT CIS");
-	mf->field = V4L2_FIELD_NONE;
-	mutex_lock(&state->lock);
-	pixfmt = &s5k5baf_formats[state->frame_fmt_idx];
-	mf->width = state->crop_source.width;
-	mf->height = state->crop_source.height;
-	mf->code = pixfmt->code;
-	mf->colorspace = pixfmt->colorspace;
-	mutex_unlock(&state->lock);
-
 	return 0;
 }
 
@@ -1095,17 +1103,21 @@ static int s5k5baf_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config
 		return -EBUSY;
 	}
 
-	pixfmt_idx = s5k3l6_try_cis_format(mf);
-	if (pixfmt_idx == -1) {
-		v4l2_err(sd, "set_fmt choice unsupported");
-		mutex_unlock(&state->lock);
-		return -EINVAL; // could not find the format. Unsupported
+	if (state->debug_frame) {
+		state->frame_fmt = &s5k3l6_frame_debug;
+	} else {
+		pixfmt_idx = s5k3l6_try_cis_format(mf);
+		if (pixfmt_idx == -1) {
+			v4l2_err(sd, "set_fmt choice unsupported");
+			mutex_unlock(&state->lock);
+			return -EINVAL; // could not find the format. Unsupported
+		}
+		state->frame_fmt = &s5k3l6_frames[pixfmt_idx];
 	}
-	state->frame_fmt_idx = pixfmt_idx;
-	mf->code = s5k3l6_frames[state->frame_fmt_idx].code;
+	mf->code = state->frame_fmt->code;
 	mf->colorspace = V4L2_COLORSPACE_RAW;
-	mf->width = s5k3l6_frames[state->frame_fmt_idx].width;
-	mf->height = s5k3l6_frames[state->frame_fmt_idx].height;
+	mf->width = state->frame_fmt->width;
+	mf->height = state->frame_fmt->height;
 
 	mutex_unlock(&state->lock);
 	return 0;
@@ -1593,6 +1605,7 @@ static int s5k5baf_probe(struct i2c_client *c)
 	struct s5k5baf *state;
 	int ret;
 	u8 test;
+	struct dentry *d;
 
 	state = devm_kzalloc(&c->dev, sizeof(*state), GFP_KERNEL);
 	if (!state)
@@ -1676,6 +1689,15 @@ static int s5k5baf_probe(struct i2c_client *c)
 	pm_runtime_enable(&c->dev);
 	pm_runtime_set_autosuspend_delay(&c->dev, 3000);
 	pm_runtime_use_autosuspend(&c->dev);
+
+	// Default frame.
+	state->frame_fmt = &s5k3l6_frames[0];
+
+	d = debugfs_create_dir("s5k3l6", NULL);
+	// When set to 1, then no sensor registers will be set,
+	// except stream on and bits per pixel.
+	state->debug_frame = 0;
+	debugfs_create_u8("debug_frame", S_IRUSR | S_IWUSR, d, &state->debug_frame);
 
 	return 0;
 
