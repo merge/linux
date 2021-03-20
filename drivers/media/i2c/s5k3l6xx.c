@@ -445,8 +445,6 @@ struct s5k3l6_frame {
 	u32 width;
 	u32 height;
 	u32 code;
-	const struct s5k3l6_reg *pllregs;
-	u16 pllregcount;
 	const struct s5k3l6_reg  *streamregs;
 	u16 streamregcount;
 };
@@ -569,8 +567,6 @@ static const struct s5k3l6_reg no_regs[0] = {};
 static const struct s5k3l6_frame s5k3l6_frame_debug = {
 	.name = "debug_empty",
 	.width = 640, .height = 480,
-	.pllregs = no_regs,
-	.pllregcount = 0,
 	.streamregs = no_regs,
 	.streamregcount = 0,
 	.code = MEDIA_BUS_FMT_SBGGR8_1X8,
@@ -582,8 +578,6 @@ static const struct s5k3l6_frame s5k3l6_frames[] = {
 	{
 		.name = "1:4 8bpp ?fps",
 		.width = 1052, .height = 780,
-		.pllregs = no_regs,
-		.pllregcount = 0,
 		.streamregs = frame_1052x780px_8bit_xfps_2lane,
 		.streamregcount = ARRAY_SIZE(frame_1052x780px_8bit_xfps_2lane),
 		.code = MEDIA_BUS_FMT_SBGGR8_1X8,
@@ -591,8 +585,6 @@ static const struct s5k3l6_frame s5k3l6_frames[] = {
 	{
 		.name = "1:2 8bpp +fps",
 		.width = 2104, .height = 1560,
-		.pllregs = no_regs,
-		.pllregcount = 0,
 		.streamregs = frame_2104x1560px_8bit_xfps_2lane,
 		.streamregcount = ARRAY_SIZE(frame_2104x1560px_8bit_xfps_2lane),
 		.code = MEDIA_BUS_FMT_SBGGR8_1X8,
@@ -600,8 +592,6 @@ static const struct s5k3l6_frame s5k3l6_frames[] = {
 	{
 		.name = "1:1 8bpp ?fps",
 		.width = 4208, .height = 3120,
-		.pllregs = no_regs,
-		.pllregcount = 0,
 		.streamregs = frame_4208x3120px_8bit_xfps_2lane,
 		.streamregcount = ARRAY_SIZE(frame_4208x3120px_8bit_xfps_2lane),
 		.code = MEDIA_BUS_FMT_SBGGR8_1X8,
@@ -771,11 +761,6 @@ static void s5k5baf_synchronize(struct s5k5baf *state, int timeout, u16 addr)
 	state->error = -ETIMEDOUT;
 }
 #endif
-
-static void s5k3l6_hw_set_clocks(struct s5k5baf *state) {
-	const struct s5k3l6_frame *frame = state->frame_fmt;
-	s5k3l6_submit_regs(state, frame->pllregs, frame->pllregcount);
-}
 
 static void s5k3l6_hw_set_cis(struct s5k5baf *state) {
 }
@@ -950,8 +935,6 @@ static int s5k5baf_set_power(struct v4l2_subdev *sd, int on)
 		//ret = s5k3l6_hw_set_video_bus(state);
 		if (ret < 0)
 			goto out;
-		// load pllinfo (will get overridden on stream start anyway)
-		s5k3l6_hw_set_clocks(state);
 		s5k3l6_hw_set_cis(state);
 		//s5k5baf_hw_set_ccm(state);
 
