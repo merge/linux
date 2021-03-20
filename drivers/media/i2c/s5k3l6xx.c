@@ -446,6 +446,71 @@ static const struct s5k3l6_reg sensor_3l6_setfile_B_Global[] = {
 	{ 0x3C66,	0x0100, 0x02 },	// Master mode disable ?? what is this even. Different than A
 };
 
+// Downscaled 1:4 in both directions.
+// Spans the entire sensor. Fps unknown.
+// Relies on defaults to be set correctly.
+static const struct s5k3l6_reg frame_1052x780px_8bit_xfps_2lane[] = {
+	// extclk freq (doesn't actually matter)
+	{ 0x0136, 0x1900,       2 },
+	// integration time: pixels:
+	{ 0x0200, 0x0000,       2 },
+	// integration time: lines
+	{ 0x0202, 0x1000,       2 },
+
+	// x_output_size
+	{ 0x034c, 0x041c,       2 },
+	// line length in pixel clocks. x_output_size * 1.16
+	// if using binning multiply x_output_size by the binning factor first
+	{ 0x0342, 0x1320,       2 },
+	// y_output_size
+	{ 0x034e, 0x030c,       2 },
+
+	// op_pre_pll_clk_div
+	//030C: 0005
+	// op_pll_multiplier, default 0064
+	{ 0x030e, 0x0036,       2 },
+
+	// analog gain
+	{ 0x0204, 0x0100,       2 },
+	// y_addr_start
+	{ 0x0346, 0x0000,       2 },
+	// end = y_output_size * binning_factor + y_addr_start
+	{ 0x034a, 0x0c30,       2 },
+	// x_addr_start
+	{ 0x0344, 0x0008,       2 },
+	// end = x_output_size * binning_factor + x_addr_start - 1
+	{ 0x0348, 0x1077,       2 },
+
+	// pll_multiplier
+	//0306: 0078
+
+	// binning enable
+	{ 0x0900, 0x01, 1 },
+	// type: 1/?x, 1/?y, full binning when matching skips
+	{ 0x0901, 0x44, 1 },
+	// y_even_inc
+	//0385: 05
+	// y_odd_inc
+	{ 0x0387, 0x07, 1 },
+
+	// those don't do anything anyway. Not sure why I keep them.
+	{ 0x3453, 0x00, 1 },
+	{ 0x345b, 0x00, 1 },
+	{ 0x345d, 0x00, 1 },
+	{ 0x345f, 0x00, 1 },
+	{ 0x3461, 0x00, 1 },
+	{ 0x38db, 0x0a, 1 },
+	{ 0x38dd, 0x0b, 1 },
+
+	{ 0x38d7, 0x0a, 1 },
+	{ 0x3932, 0x10, 1 },
+	{ 0x0820, 0x04ac,       2 },
+	{ 0x3c35, 0x08, 1 },
+	{ 0x3c36, 0x28, 1 },
+	{ 0x3c39, 0x28, 1 },
+	{ 0x393e, 0x40, 1 },
+};
+
 struct s5k5baf_gpio {
 	int gpio;
 	int level;
@@ -607,6 +672,15 @@ static const struct s5k3l6_frame s5k3l6_frame_debug = {
 // Frame sizes are only available in RAW, so this effectively replaces pixfmt.
 // Supported frame configurations.
 static const struct s5k3l6_frame s5k3l6_frames[] = {
+	{
+		.name = "1:4 8bpp ?fps",
+		.width = 1052, .height = 780,
+		.pllregs = no_regs,
+		.pllregcount = 0,
+		.streamregs = frame_1052x780px_8bit_xfps_2lane,
+		.streamregcount = ARRAY_SIZE(frame_1052x780px_8bit_xfps_2lane),
+		.code = MEDIA_BUS_FMT_SBGGR8_1X8,
+	},
 	{
 		.name = "old_half",
 		.width = 2064, .height = 1160,
