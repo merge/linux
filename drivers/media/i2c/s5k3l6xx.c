@@ -258,22 +258,6 @@ static const struct s5k3l6_reg sensor_3l6_pllinfo_A_4128x3096_30fps[] = {
        { 0x0342, 0x1320, 0x02 }, /* line_length_pck (0x0343) */
 };
 
-static const struct s5k3l6_reg  sensor_3l6_pllinfo_B_2064x1160_30fps[] = {
-	// EXT_CLK_Mhz * 1000 * 1000, /* ext_clk */
-	{ 0x0301, 0x02, 0x01 }, /* vt_pix_clk_div	(0x0301) */
-	{ 0x0303, 0x01, 0x01 }, /* vt_sys_clk_div	(0x0303) */
-	{ 0x0305, 0x03, 0x01 }, /* pre_pll_clk_div	(0x0305) */
-	{ 0x0307, 0x53, 0x01 }, /* pll_multiplier	(0x0307) */
-	{ 0x0309, 0x08, 0x01 }, /* op_pix_clk_div	(0x0309) */
-	{ 0x030b, 0x04, 0x01 }, /* op_sys_clk_div	(0x030B) */
-
-	{ 0x030d, 0x04, 0x01 }, /* secnd_pre_pll_clk_div	(0x030D) */
-	{ 0x030f, 0x5C, 0x01 }, /* secnd_pll_multiplier	(0x030F) */
-	{ 0x0340, 0x0CC1, 0x02 }, /* frame_length_lines	(0x0341) */
-	{ 0x0342, 0x1320, 0x02 }, /* line_length_pck	(0x0343) */
-};
-
-
 static const struct s5k3l6_reg  sensor_3l6_setfile_A_4128x3096_30fps[] = {
        // mode change   Single Still Capture (4:3)
        { 0x314A, 0x5F00, 0x02 },
@@ -331,68 +315,6 @@ static const struct s5k3l6_reg  sensor_3l6_setfile_A_4128x3096_30fps[] = {
 	{ 0x3C1E, 0x0100, 0x02 }, // system pll pd (what does it mean? power down?)
 	{ 0x0100, 0x0100, 0x02 }, // start streaming
        { 0x3C1E, 0x0000, 0x02 },
-};
-
-static const struct s5k3l6_reg sensor_3l6_setfile_B_2064x1160_30fps[] = {
-	/* VT Call 16:9 ratio */
-	{ 0x314A, 0x5F02, 0x02 },
-	{ 0x3064, 0xFFCF, 0x02 },
-	{ 0x3066, 0x7E00, 0x02 },
-	{ 0x309C, 0x0640, 0x02 },
-	{ 0x380C, 0x0090, 0x02 },
-	{ 0x32B2, 0x0003, 0x02 },
-	{ 0x32B4, 0x0003, 0x02 },
-	{ 0x32B6, 0x0003, 0x02 },
-	{ 0x32B8, 0x0003, 0x02 },
-	{ 0x3090, 0x8000, 0x02 },
-	{ 0x3238, 0x000B, 0x02 },
-	{ 0x0100, 0x0000, 0x02 }, // stop stream
-	{ 0x0344, 0x0030, 0x02 }, // x_addr_start
-	{ 0x0348, 0x104F, 0x02 }, // x_addr_end
-	{ 0x0346, 0x0198, 0x02 }, // y_addr_start
-	{ 0x034A, 0x0AA7, 0x02 }, // y_addr_end
-	{ 0x034C, 0x0810, 0x02 }, // x_output_size
-	{ 0x034E, 0x0488, 0x02 }, // y_output_size
-	{ 0x0202, 0x0656, 0x02 }, // coarse_integration_time
-	{ 0x3400, 0x0000, 0x02 }, // can also be 0x1
-	{ 0x3402, 0x4E46, 0x02 },
-	// This part actually covers the same as pllinfo.
-	{ 0x0136, 0x1A00, 0x02 }, // extclk freq
-	{ 0x0304, 0x0003, 0x02 }, // pre_pll_clk_div
-	{ 0x0306, 0x0023, 0x02 }, // pll_multiplier
-	{ 0x030C, 0x0004, 0x02 }, // op_pre_pll_clk_div
-	{ 0x030E, 0x005C, 0x02 }, // op_pll_multiplier
-	// not the next line
-	{ 0x3C16, 0x0000, 0x02 },
-	/// I don't get it, they are the same regardless of width. Frame length changes... with fps.
-	{ 0x0342, 0x1320, 0x02 }, // line_length pixel clocks = 4896??? gives 2832 pixels of time of blanking
-	{ 0x0340, 0x0CC1, 0x02 }, // frame_length_lines = 3265?? 2105 lines of blanking
-	// presumes 480MHz pixel clock for 30fps
-	// end pllinfo part
-	//{ 0x0900, 0x0122, 0x02 }, // binning enable, 2:2
-	//{ 0x0386, 0x0003, 0x02 }, // y_odd_inc
-	{ 0x0900, 0x0000, 0x02 }, // no binning (normal)
-
-	{ 0x3452, 0x0000, 0x02 },
-	{ 0x345A, 0x0000, 0x02 },
-	{ 0x345C, 0x0000, 0x02 },
-	{ 0x345E, 0x0000, 0x02 },
-	{ 0x3460, 0x0000, 0x02 },
-	{ 0x38C4, 0x0009, 0x02 },
-	{ 0x38D8, 0x002A, 0x02 },
-	{ 0x38DA, 0x000A, 0x02 },
-	{ 0x38DC, 0x000B, 0x02 },
-	{ 0x38C2, 0x000A, 0x02 },
-	{ 0x38C0, 0x000F, 0x02 },
-	{ 0x38D6, 0x000A, 0x02 },
-	{ 0x38D4, 0x0009, 0x02 },
-	{ 0x38B0, 0x000F, 0x02 },
-	{ 0x3932, 0x1000, 0x02 },
-	{ 0x0820, 0x04AC, 0x02 }, // requested_link_rate freq of MIPI lane
-	{ 0x3C34, 0x0008, 0x02 },
-	{ 0x3C36, 0x2800, 0x02 },
-	{ 0x3C38, 0x0028, 0x02 },
-	{ 0x393E, 0x4000, 0x02 },
 };
 
 static const struct s5k3l6_reg sensor_3l6_setfile_A_Global[] = {
@@ -489,9 +411,71 @@ static const struct s5k3l6_reg frame_1052x780px_8bit_xfps_2lane[] = {
 	// type: 1/?x, 1/?y, full binning when matching skips
 	{ 0x0901, 0x44, 1 },
 	// y_even_inc
-	//0385: 05
+	//0385: 01
 	// y_odd_inc
 	{ 0x0387, 0x07, 1 },
+
+	// those don't do anything anyway. Not sure why I keep them.
+	{ 0x3453, 0x00, 1 },
+	{ 0x345b, 0x00, 1 },
+	{ 0x345d, 0x00, 1 },
+	{ 0x345f, 0x00, 1 },
+	{ 0x3461, 0x00, 1 },
+	{ 0x38db, 0x0a, 1 },
+	{ 0x38dd, 0x0b, 1 },
+
+	{ 0x38d7, 0x0a, 1 },
+	{ 0x3932, 0x10, 1 },
+	{ 0x0820, 0x04ac,       2 },
+	{ 0x3c35, 0x08, 1 },
+	{ 0x3c36, 0x28, 1 },
+	{ 0x3c39, 0x28, 1 },
+	{ 0x393e, 0x40, 1 },
+};
+
+// Downscaled 1:2 in both directions.
+// Spans the entire sensor. Fps unknown.
+// Relies on defaults to be set correctly.
+static const struct s5k3l6_reg frame_2104x1560px_8bit_xfps_2lane[] = {
+	// extclk freq (doesn't actually matter)
+	{ 0x0136, 0x1900,       2 },
+	// integration time: pixels:
+	// 0200: 0
+	// integration time: lines (might be max by default)
+	{ 0x0202, 0x1000,       2 },
+
+	// x_output_size
+	{ 0x034c, 0x0838,       2 },
+	// y_output_size
+	{ 0x034e, 0x0618,       2 },
+	// op_pre_pll_clk_div (the more, the wider?)
+	//030C: 0005
+	// op_pll_multiplier, default 0064
+	// 0036 is good for 175MHz on mipi side, although it makes the source clock 216MHz (double-check)
+	// 0042 ok for 200MHz
+	// 0052 ok for 250MHz
+	{ 0x030e, 0x0053,       2 },
+
+	// y_addr_start
+	{ 0x0346, 0x0000,       2 },
+	// end
+	{ 0x034a, 0x0c30,       2 },
+	// x_addr_start
+	{ 0x0344, 0x0000,       2 },
+	// end to match sensor
+	{ 0x0348, 0x1068,       2 },
+	// line length in pixel clocks. Relevant for slower modes
+	//0342: 1aa0 // lower gets wonky with lower mipi freqs
+
+	// binning enable
+	{ 0x0900, 0x01, 1 },
+	// type: 1/?x, 1/?y, full binning when matching skips
+	{ 0x0901, 0x22, 1 },
+	// x binning skips 8-pixel bocks, making it useless
+	// y_even_inc
+	//0385: 01
+	// y_odd_inc
+	{ 0x0387, 0x03, 1 },
 
 	// those don't do anything anyway. Not sure why I keep them.
 	{ 0x3453, 0x00, 1 },
@@ -682,12 +666,12 @@ static const struct s5k3l6_frame s5k3l6_frames[] = {
 		.code = MEDIA_BUS_FMT_SBGGR8_1X8,
 	},
 	{
-		.name = "old_half",
-		.width = 2064, .height = 1160,
-		.pllregs = sensor_3l6_pllinfo_B_2064x1160_30fps,
-		.pllregcount = ARRAY_SIZE(sensor_3l6_pllinfo_B_2064x1160_30fps),
-		.streamregs = sensor_3l6_setfile_B_2064x1160_30fps,
-		.streamregcount = ARRAY_SIZE(sensor_3l6_setfile_B_2064x1160_30fps),
+		.name = "1:2 8bpp ?fps",
+		.width = 2104, .height = 1560,
+		.pllregs = no_regs,
+		.pllregcount = 0,
+		.streamregs = frame_2104x1560px_8bit_xfps_2lane,
+		.streamregcount = ARRAY_SIZE(frame_2104x1560px_8bit_xfps_2lane),
 		.code = MEDIA_BUS_FMT_SBGGR8_1X8,
 	},
 	{
