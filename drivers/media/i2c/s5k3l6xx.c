@@ -557,8 +557,8 @@ static const struct s5k5baf_pixfmt s5k5baf_formats[] = {
 
 static const struct s5k5baf_pixfmt s5k3l6_formats[] = {
 	// invalid, included to push through mx6s_vidioc_enum_fmt_vid_cap "no more fmt" error
-	{ MEDIA_BUS_FMT_SBGGR8_1X8,	V4L2_COLORSPACE_RAW,	5 },
-	// 8bit Bayer entry (BGGR?)
+	{ MEDIA_BUS_FMT_SGRBG8_1X8,	V4L2_COLORSPACE_RAW,	5 },
+	// 8bit Bayer entry (GRBG?)
 	// 10 bit Bayer entry
 };
 
@@ -569,7 +569,7 @@ static const struct s5k3l6_frame s5k3l6_frame_debug = {
 	.width = 640, .height = 480,
 	.streamregs = no_regs,
 	.streamregcount = 0,
-	.code = MEDIA_BUS_FMT_SBGGR8_1X8,
+	.code = MEDIA_BUS_FMT_SGRBG8_1X8,
 };
 
 // Frame sizes are only available in RAW, so this effectively replaces pixfmt.
@@ -580,21 +580,21 @@ static const struct s5k3l6_frame s5k3l6_frames[] = {
 		.width = 1052, .height = 780,
 		.streamregs = frame_1052x780px_8bit_xfps_2lane,
 		.streamregcount = ARRAY_SIZE(frame_1052x780px_8bit_xfps_2lane),
-		.code = MEDIA_BUS_FMT_SBGGR8_1X8,
+		.code = MEDIA_BUS_FMT_SGRBG8_1X8,
 	},
 	{
 		.name = "1:2 8bpp +fps",
 		.width = 2104, .height = 1560,
 		.streamregs = frame_2104x1560px_8bit_xfps_2lane,
 		.streamregcount = ARRAY_SIZE(frame_2104x1560px_8bit_xfps_2lane),
-		.code = MEDIA_BUS_FMT_SBGGR8_1X8,
+		.code = MEDIA_BUS_FMT_SGRBG8_1X8,
 	},
 	{
 		.name = "1:1 8bpp ?fps",
 		.width = 4208, .height = 3120,
 		.streamregs = frame_4208x3120px_8bit_xfps_2lane,
 		.streamregcount = ARRAY_SIZE(frame_4208x3120px_8bit_xfps_2lane),
-		.code = MEDIA_BUS_FMT_SBGGR8_1X8,
+		.code = MEDIA_BUS_FMT_SGRBG8_1X8,
 	},
 };
 
