@@ -925,6 +925,5 @@ module_init(rsi_91x_hal_module_init);
 module_exit(rsi_91x_hal_module_exit);
 MODULE_AUTHOR("Redpine Signals Inc");
 MODULE_DESCRIPTION("Station driver for RSI 91x devices");
-MODULE_SUPPORTED_DEVICE("RSI-91x");
 MODULE_VERSION(DRV_VER);
 MODULE_LICENSE("Dual BSD/GPL");
