@@ -816,7 +816,7 @@ static const struct s5k3l6_reg setstream[] = {
 
 static void s5k3l6_hw_set_config(struct s5k5baf *state) {
 	const struct s5k3l6_frame *frame_fmt = state->frame_fmt;
-	v4l2_err(&state->sd, "Setting frame format %s", frame_fmt->name);
+	v4l2_dbg(3, debug, &state->sd, "Setting frame format %s", frame_fmt->name);
 	s5k3l6_submit_regs(state, frame_fmt->streamregs, frame_fmt->streamregcount);
 
 	// This may mess up PLL settings...
@@ -957,7 +957,7 @@ out:
 
 static void s5k3l6_hw_set_stream(struct s5k5baf *state, int enable)
 {
-	v4l2_err(&state->sd, "set_dtream sd %px", (void*)&state->sd);
+	v4l2_dbg(3, debug, &state->sd, "set_dtream sd %px", (void*)&state->sd);
 	s5k5baf_i2c_write(state, S5K3L6_REG_MODE_SELECT, enable ? S5K3L6_MODE_STREAMING : S5K3L6_MODE_STANDBY);
 }
 
@@ -1010,7 +1010,7 @@ static int s5k5baf_enum_mbus_code(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_pad_config *cfg,
 				 struct v4l2_subdev_mbus_code_enum *code)
 {
-	v4l2_err(sd, "enum_mbus idx %d", code->index);
+	v4l2_dbg(3, debug, sd, "enum_mbus idx %d", code->index);
 	if (code->index >= ARRAY_SIZE(s5k3l6_frames))
 		return -EINVAL;
 	code->code = s5k3l6_frames[code->index].code;
@@ -1073,7 +1073,7 @@ static int s5k5baf_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config
 {
 	struct v4l2_mbus_framefmt *mf;
 
-	v4l2_err(sd, "get_fmt");
+	v4l2_dbg(3, debug, sd, "get_fmt");
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		mf = v4l2_subdev_get_try_format(sd, cfg, fmt->pad);
 		fmt->format = *mf;
@@ -1235,7 +1235,7 @@ static int s5k5baf_s_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_TEST_PATTERN:
 		state->apply_test_solid = (ctrl->val == S5K3L6_TEST_PATTERN_SOLID_COLOR);
-		v4l2_err(sd, "Setting pattern %d", ctrl->val);
+		v4l2_dbg(3, debug, sd, "Setting pattern %d", ctrl->val);
 		s5k3l6_hw_set_test_pattern(state, ctrl->val);
 		break;
 	case V4L2_CID_TEST_PATTERN_RED:
