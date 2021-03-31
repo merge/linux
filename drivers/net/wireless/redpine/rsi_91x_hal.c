@@ -1483,6 +1483,7 @@ static int rsi_load_firmware(struct rsi_hw *adapter)
 #endif
 	struct ta_metadata *metadata_p;
 	int status;
+	int fw_ret = 0;
 
 	bl_start_cmd_timer(adapter, BL_CMD_TIMEOUT);
 #ifdef CONFIG_RS9116_FLASH_MODE
@@ -1528,7 +1529,7 @@ static int rsi_load_firmware(struct rsi_hw *adapter)
 	}
 	bl_stop_cmd_timer(adapter);
 
-	redpine_dbg(INFO_ZONE, "Received Board Version Number: %x\n",
+	redpine_dbg(ERR_ZONE, "Received Board Version Number: %x\n",
 		(regout_val & 0xff));
 
 	if ((hif_ops->master_reg_write(adapter,
@@ -1587,30 +1588,39 @@ static int rsi_load_firmware(struct rsi_hw *adapter)
 		redpine_dbg(ERR_ZONE, "%s: Loading file %s\n", __func__,
 			metadata_p->name);
 		adapter->fw_file_name = metadata_p->name;
-		if ((request_firmware(&fw_entry, metadata_p->name,
-				      adapter->device)) < 0) {
+		fw_ret = request_firmware(&fw_entry, metadata_p->name, adapter->device);
+		if (fw_ret < 0) {
 			redpine_dbg(ERR_ZONE, "%s: Failed to open file %s\n",
 				__func__, metadata_p->name);
-			goto fail;
-		}
-		if (flash_data_start == 0x5aa5) {
-			if (rsi_check_firmware(adapter, fw_entry)) {
-				return -EINVAL;
-			} else {
-				if (rsi_check_crc(adapter))
-					goto upgrade_9116_flash_fw;
-			}
 		} else {
-			redpine_dbg(ERR_ZONE, " *** Flash is Empty ***\n");
-			if (rsi_check_firmware(adapter, fw_entry)) {
-				release_firmware(fw_entry);
-				return -EINVAL;
+			if (flash_data_start == 0x5aa5) {
+				if (rsi_check_firmware(adapter, fw_entry)) {
+					redpine_dbg(ERR_ZONE, " *** rsi_check_firmware failed ***\n");
+					return -EINVAL;
+				} else {
+					if (rsi_check_crc(adapter)) {
+						redpine_dbg(ERR_ZONE, " *** rsi_check_crc failed - \
+							    will try reflash ***\n");
+						goto upgrade_9116_flash_fw;
+					} else {
+						redpine_dbg(ERR_ZONE, " *** Flash CRC passed ***\n");
+					}
+				}
+			} else {
+				redpine_dbg(ERR_ZONE, " *** Flash is Empty ***\n");
+				if (rsi_check_firmware(adapter, fw_entry)) {
+					release_firmware(fw_entry);
+					return -EINVAL;
+				}
+				goto upgrade_9116_flash_fw;
 			}
-			goto upgrade_9116_flash_fw;
 		}
 load_9116_flash_fw:
+		if (flash_data_start != 0x5aa5)
+			redpine_dbg(ERR_ZONE, " *** No FW magic will try to load anyway ***\n");
 		status = rsi_load_9116_flash_fw(adapter);
-		release_firmware(fw_entry);
+		if (fw_ret >= 0)
+			release_firmware(fw_entry);
 		return status;
 upgrade_9116_flash_fw:
 		adapter->flash_capacity = RSI_9116_FLASH_SIZE;
