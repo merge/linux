@@ -1461,6 +1461,37 @@ fail_free_fw:
 }
 #endif
 
+#ifdef CONFIG_RS9116_FLASH_MODE
+static int rsi_read_flash_fw_version( struct rsi_hw *adapter )
+{
+	struct rsi_common *common = adapter->priv;
+	struct rsi_host_intf_ops *hif_ops = adapter->host_intf_ops;
+	u8 flash_read[RSI_MAX_FLASH_OFFSET_SIZE];
+
+	if ((hif_ops->master_reg_read(adapter, RSI_FLASH_READ_FW_VER,
+			(int *)flash_read,
+			4)) < 0) {
+	redpine_dbg(ERR_ZONE, "%s: RSI_FLASH_READ_FW_VER failed\n", __func__);
+		return -EINVAL;
+	}
+	common->lmac_ver.build_id = (u16)((flash_read[1] << 8) | flash_read[0]);
+	common->lmac_ver.major = flash_read[2];
+	common->lmac_ver.minor = flash_read[3];
+	if ((hif_ops->master_reg_read(adapter, RSI_FLASH_READ_FW_VER1,
+			(int *)flash_read,
+			4)) < 0) {
+	redpine_dbg(ERR_ZONE, "%s: RSI_FLASH_READ_FW_VER failed\n", __func__);
+		return -EINVAL;
+	}
+	common->lmac_ver.chip_id = (u16)((flash_read[3] << 8) | flash_read[2]);
+	common->lmac_ver.release_num = flash_read[0];
+	common->lmac_ver.customer_id = flash_read[1];
+	common->lmac_ver.patch_num = flash_read[2];
+
+	return 0;
+}
+#endif
+
 /**
  * rsi_load_firmware () - This function loads the TA firmware for 9113
  *				device.
@@ -1479,7 +1510,6 @@ static int rsi_load_firmware(struct rsi_hw *adapter)
 
 #ifdef CONFIG_RS9116_FLASH_MODE
 	u32 flash_data_start = 0;
-	u8 flash_read[RSI_MAX_FLASH_OFFSET_SIZE];
 #endif
 	struct ta_metadata *metadata_p;
 	int status;
@@ -1546,29 +1576,8 @@ static int rsi_load_firmware(struct rsi_hw *adapter)
 		if (flash_data_start == 0x5aa5) {
 			status = rsi_load_9116_flash_fw(adapter);
 			mdelay(3000);
-			if ((hif_ops->master_reg_read(adapter,
-					RSI_FLASH_READ_FW_VER,
-					(int *)flash_read,
-					4)) < 0) {
-			redpine_dbg(ERR_ZONE,
-				"%s: RSI_FLASH_READ_FW_VER failed\n", __func__);
-				goto bl_cmd_fail;
-			}
-			common->lmac_ver.build_id = (u16)((flash_read[1] << 8) | flash_read[0]);
-			common->lmac_ver.major = flash_read[2];
-			common->lmac_ver.minor = flash_read[3];
-			if ((hif_ops->master_reg_read(adapter,
-					RSI_FLASH_READ_FW_VER1,
-					(int *)flash_read,
-					4)) < 0) {
-			redpine_dbg(ERR_ZONE,
-				"%s: RSI_FLASH_READ_FW_VER failed\n", __func__);
-				goto bl_cmd_fail;
-			}
-			common->lmac_ver.chip_id = (u16)((flash_read[3] << 8) | flash_read[2]);
-			common->lmac_ver.release_num = flash_read[0];
-			common->lmac_ver.customer_id = flash_read[1];
-			common->lmac_ver.patch_num = flash_read[2];
+			if (rsi_read_flash_fw_version(adapter) < 0)
+			    goto bl_cmd_fail;
 			rsi_print_version(common);
 			if (adapter->rsi_host_intf == RSI_HOST_INTF_USB) {
 				if (bl_cmd(adapter, POLLING_MODE,
@@ -1619,6 +1628,10 @@ load_9116_flash_fw:
 		if (flash_data_start != 0x5aa5)
 			redpine_dbg(ERR_ZONE, " *** No FW magic will try to load anyway ***\n");
 		status = rsi_load_9116_flash_fw(adapter);
+		mdelay(3000);
+		if (rsi_read_flash_fw_version(adapter) < 0)
+		    goto bl_cmd_fail;
+		rsi_print_version(common);
 		if (fw_ret >= 0)
 			release_firmware(fw_entry);
 		return status;
