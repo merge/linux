@@ -58,7 +58,7 @@ static struct ta_metadata metadata_flash_content[] = {
 
 };
 
-#ifndef CONFIG_RS9116_FLASH_MODE
+#if !defined(CONFIG_REDPINE_LOAD_FW_FROM_FLASH_ONLY)
 static struct ta_metadata metadata[] = {{"pmemdata_dummy", 0x00000000},
 	{"pmemdata", 0x00000000},
 	{"pmemdata_wlan_bt_classic", 0x00000000},
@@ -68,7 +68,9 @@ static struct ta_metadata metadata[] = {{"pmemdata_dummy", 0x00000000},
 	{"pmemdata_zigb_coordinator", 0x00000000},
 	{"pmemdata_zigb_router", 0x00000000}
 };
-#elif !defined(CONFIG_REDPINE_LOAD_FW_FROM_FLASH_ONLY)
+#endif
+
+#ifdef CONFIG_RS9116_FLASH_MODE
 static struct ta_metadata metadata_9116_flash[] = {
 	{"flash_content", 0x00010000},
 	{"RS9116_NLINK_WLAN_IMAGE.rps", 0x00010000},
@@ -1342,8 +1344,9 @@ static int rsi_load_9116_flash_fw(struct rsi_hw *adapter)
 	return 0;
 
 }
-#else
-static int rsi_load_9116_firmware(struct rsi_hw *adapter)
+#endif
+
+static int rsi_load_9116_firmware_to_ram(struct rsi_hw *adapter, const struct firmware *fw_entry)
 {
 	struct rsi_common *common = adapter->priv;
 	struct rsi_host_intf_ops *hif_ops = adapter->host_intf_ops;
@@ -1351,7 +1354,6 @@ static int rsi_load_9116_firmware(struct rsi_hw *adapter)
 	struct ta_metadata *metadata_p = NULL;
 	u8 *firmware_ptr;
 	u32 instructions_sz = 0;
-	const struct firmware *fw_entry = NULL;
 	int ii;
 	struct bootload_ds bootload_ds;
 	u32 base_address;
@@ -1369,19 +1371,10 @@ static int rsi_load_9116_firmware(struct rsi_hw *adapter)
 
 	metadata_p = &metadata[adapter->priv->coex_mode];
 
-	redpine_dbg(INIT_ZONE, "%s: loading file %s\n", __func__, metadata_p->name);
-	adapter->fw_file_name = metadata_p->name;
-
-	if ((request_firmware(&fw_entry, metadata_p->name,
-			      adapter->device)) < 0) {
-		redpine_dbg(ERR_ZONE, "%s: Failed to open file %s\n",
-			__func__, metadata_p->name);
-		return -EINVAL;
-	}
 	firmware_ptr = (u8 *)fw_entry->data;
 	instructions_sz = fw_entry->size;
 	version_info =  (struct lmac_version_info *)&fw_entry->data[LMAC_VER_OFFSET_RS9116];
-	redpine_dbg(INFO_ZONE, "FW Length = %d bytes\n", instructions_sz);
+	redpine_dbg(INIT_ZONE, "FW Length = %d bytes\n", instructions_sz);
 	common->lmac_ver.major = version_info->major_id;
 	common->lmac_ver.minor = version_info->minor_id;
 	common->lmac_ver.build_id = (u16)((version_info->build_msb << 8) | version_info->build_lsb);
@@ -1391,7 +1384,7 @@ static int rsi_load_9116_firmware(struct rsi_hw *adapter)
 	if (instructions_sz % 4)
 		instructions_sz += (4 - (instructions_sz % 4));
 
-	redpine_dbg(INFO_ZONE, "instructions_sz : %d\n", instructions_sz);
+	redpine_dbg(INIT_ZONE, "instructions_sz : %d\n", instructions_sz);
 
 	base_address = metadata_p->address;
 
@@ -1443,7 +1436,7 @@ static int rsi_load_9116_firmware(struct rsi_hw *adapter)
 		redpine_dbg(ERR_ZONE,
 			"%s: Unable to load %s blk\n",
 			__func__, metadata_p->name);
-		goto fail_free_fw;
+		return status;
 	}
 
 	redpine_dbg(INIT_ZONE, "%s: Successfully loaded %s instructions\n",
@@ -1455,8 +1448,32 @@ static int rsi_load_9116_firmware(struct rsi_hw *adapter)
 			redpine_dbg(ERR_ZONE, "Unable to put ta in reset\n");
 	}
 
-fail_free_fw:
+	return status;
+}
+
+#ifndef CONFIG_RS9116_FLASH_MODE
+static int rsi_load_9116_firmware(struct rsi_hw *adapter)
+{
+	int status = 0;
+	struct ta_metadata *metadata_p = NULL;
+	const struct firmware *fw_entry = NULL;
+
+	metadata_p = &metadata[adapter->priv->coex_mode];
+
+	redpine_dbg(INIT_ZONE, "%s: loading file %s\n", __func__, metadata_p->name);
+	adapter->fw_file_name = metadata_p->name;
+
+	if ((request_firmware(&fw_entry, metadata_p->name,
+			      adapter->device)) < 0) {
+		redpine_dbg(ERR_ZONE, "%s: Failed to open file %s\n",
+			__func__, metadata_p->name);
+		return -EINVAL;
+	}
+
+	status = rsi_load_9116_firmware_to_ram(adapter, fw_entry);
+
 	release_firmware(fw_entry);
+
 	return status;
 }
 #endif
@@ -1504,6 +1521,7 @@ static int rsi_load_firmware(struct rsi_hw *adapter)
 	struct rsi_common *common = adapter->priv;
 	struct rsi_host_intf_ops *hif_ops = adapter->host_intf_ops;
 	const struct firmware *fw_entry = NULL;
+	struct firmware ram_fw_entry;
 	u32 regout_val = 0;
 	u16 tmp_regout_val = 0;
 	u32 content_size = 0;
@@ -1652,8 +1670,22 @@ upgrade_9116_flash_fw:
 			}
 			goto load_9116_flash_fw;
 		}
-		redpine_dbg(ERR_ZONE, "Firmware upgrade failed\n");
-		goto fail;
+		redpine_dbg(ERR_ZONE, "Firmware upgrade failed - attempt RAM load\n");
+		/* As a last resort try loading the flash file to RAM - drop the 64 byte header
+		 * first */
+		ram_fw_entry.data = &fw_entry->data[64];
+		ram_fw_entry.size = fw_entry->size-64;
+		ram_fw_entry.priv = fw_entry->priv;
+		redpine_dbg(ERR_ZONE, "Ram file magic 0x%x size %ld\n", ram_fw_entry.data[0]<<8 |
+			    ram_fw_entry.data[1], ram_fw_entry.size);
+		if ((ram_fw_entry.data[0]<<8 | ram_fw_entry.data[1]) != 0xa55a) {
+			redpine_dbg(ERR_ZONE, "Bad ram FW magic\n");
+			goto fail;
+		}
+		if (rsi_load_9116_firmware_to_ram(adapter, (const struct firmware *)&ram_fw_entry) < 0)
+			goto fail;
+		redpine_dbg(ERR_ZONE, "RAM load successful\n");
+		goto success;
 
 #endif
 #else
