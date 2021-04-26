@@ -1511,6 +1511,7 @@
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
+	snps,parkmode-disable-ss-quirk;
 
 	/* Microchip USB2642 */
 	hub@1 {
