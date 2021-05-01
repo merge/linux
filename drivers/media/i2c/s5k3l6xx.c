@@ -51,6 +51,8 @@ module_param(debug, int, 0644);
 
 #define S5K3L6XX_REG_FRAME_COUNT	0x0005
 #define S5K3L6XX_REG_LANE_MODE		0x0114
+#define S5K3L6XX_REG_FINE_INTEGRATION_TIME		0x0200 // 2 bytes
+#define S5K3L6XX_REG_COARSE_INTEGRATION_TIME		0x0202 // 2 bytes
 #define S5K3L6XX_REG_ANALOG_GAIN		0x0204 // 2 bytes
 #define S5K3L6XX_REG_DIGITAL_GAIN		0x020e // 2 bytes
 
@@ -847,6 +849,9 @@ static int s5k3l6xx_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_DIGITAL_GAIN:
 		s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_DIGITAL_GAIN, (u16)ctrl->val & 0xfff);
 		break;
+	case V4L2_CID_EXPOSURE:
+		s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_COARSE_INTEGRATION_TIME, (u16)ctrl->val);
+		break;
 	case V4L2_CID_TEST_PATTERN:
 		state->apply_test_solid = (ctrl->val == S5K3L6XX_TEST_PATTERN_SOLID_COLOR);
 		v4l2_dbg(3, debug, sd, "Setting pattern %d", ctrl->val);
@@ -912,11 +917,10 @@ static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 		return ret;
 	}
 
-	/*
-	// Exposure time: x 1 us
+	// Exposure time (min: 2; max: frame length lines - 2; default: reset value)
 	ctrls->exposure = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_EXPOSURE,
-					    0, 6000000U, 1, 100000U);
-	*/
+					    2, 3118, 1, 0x03de);
+
 	// Total gain: 32 <=> 1x
 	ctrls->analog_gain = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_ANALOGUE_GAIN,
 					0x20, 0x200, 1, 0x20);
