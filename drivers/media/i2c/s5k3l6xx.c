@@ -990,9 +990,7 @@ static int __maybe_unused s5k3l6xx_suspend(struct device *dev)
 	if (state->streaming)
 		s5k3l6xx_hw_set_stream(state, 0);
 
-	s5k3l6xx_set_power(sd, FALSE);
-
-	return 0;
+	return s5k3l6xx_set_power(sd, FALSE);
 }
 
 static int __maybe_unused s5k3l6xx_resume(struct device *dev)
@@ -1007,10 +1005,10 @@ static int __maybe_unused s5k3l6xx_resume(struct device *dev)
 	ret = s5k3l6xx_set_power(sd, TRUE);
 	msleep(500);
 
-	if (state->streaming)
+	if (ret == 0 && state->streaming)
 		s5k3l6xx_hw_set_stream(state, 1);
 
-	return 0;
+	return ret;
 }
 
 // FIXME: are we even using this?
