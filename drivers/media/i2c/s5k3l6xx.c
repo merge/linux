@@ -65,6 +65,9 @@ module_param(debug, int, 0644);
 #define S5K3L6XX_REG_TEST_DATA_BLUE	0x0606
 #define S5K3L6XX_REG_TEST_DATA_GREENB	0x0608
 
+#define S5K3L6XX_REG_AF			0x3403
+#define S5K3L6XX_REG_AF_BIT_FILTER	0b100
+
 #define S5K3L6XX_REG_MODE_SELECT	0x100
 #define S5K3L6XX_MODE_STREAMING		0x1
 #define S5K3L6XX_MODE_STANDBY		0x0
@@ -165,6 +168,10 @@ static const struct s5k3l6xx_reg frame_2104x1560px_8bit_xfps_2lane[] = {
 	// They work slightly differently depending on the value of 307b:80
 	// 0x0972 makes focus pixels appear.
 	{ 0x3074, 0x0974, 2}, // 74, 75, 76, 77 all good for binning 1:2.
+
+	// filter out autofocus pixels
+	// FIXME: this should be behind a custom control instead
+	{ 0x3403, 0x42 | S5K3L6XX_REG_AF_BIT_FILTER, 1 },
 };
 
 // Not scaled.
@@ -200,6 +207,10 @@ static const struct s5k3l6xx_reg frame_4208x3120px_8bit_xfps_2lane[] = {
 	// The last 3 bits (0x0007) control some global brightness/noise pattern.
 	// They work slightly differently depending on the value of 307b:80
 	{ 0x3074, 0x0977, 2}, // 74, 75, 76, 77 all good for binning 1:!, might introduce banding.
+
+	// filter out autofocus pixels
+	// FIXME: this should be behind a custom control instead
+	{ 0x3403, 0x42 | S5K3L6XX_REG_AF_BIT_FILTER, 1 },
 };
 
 struct s5k3l6xx_gpio {
