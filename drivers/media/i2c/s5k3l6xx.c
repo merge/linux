@@ -921,7 +921,7 @@ static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 	*/
 	// Total gain: 32 <=> 1x
 	ctrls->analog_gain = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_ANALOGUE_GAIN,
-					0, 0x200, 1, 0x20);
+					0x20, 0x200, 1, 0x20);
 
 	v4l2_ctrl_new_std_menu_items(hdl, ops, V4L2_CID_TEST_PATTERN,
 				     ARRAY_SIZE(s5k3l6_test_pattern_menu) - 1,
