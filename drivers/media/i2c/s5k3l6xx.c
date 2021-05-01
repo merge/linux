@@ -52,6 +52,7 @@ module_param(debug, int, 0644);
 #define S5K3L6XX_REG_FRAME_COUNT	0x0005
 #define S5K3L6XX_REG_LANE_MODE		0x0114
 #define S5K3L6XX_REG_ANALOG_GAIN		0x0204 // 2 bytes
+#define S5K3L6XX_REG_DIGITAL_GAIN		0x020e // 2 bytes
 
 #define S5K3L6XX_REG_TEST_PATTERN_MODE	0x0601
 #define S5K3L6XX_TEST_PATTERN_SOLID_COLOR	0x01
@@ -233,6 +234,7 @@ struct s5k3l6xx_ctrls {
 		struct v4l2_ctrl *auto_exp;
 		struct v4l2_ctrl *exposure;
 		struct v4l2_ctrl *analog_gain;
+		struct v4l2_ctrl *digital_gain;
 	};
 };
 
@@ -849,6 +851,9 @@ static int s5k3l6xx_s_ctrl(struct v4l2_ctrl *ctrl)
 		// Analog gain supported up to 0x200 (16). Gain = register / 32, so 0x20 gives gain 1.
 		s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_ANALOG_GAIN, (u16)ctrl->val & 0x3ff);
 		break;
+	case V4L2_CID_DIGITAL_GAIN:
+		s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_DIGITAL_GAIN, (u16)ctrl->val & 0xfff);
+		break;
 	case V4L2_CID_TEST_PATTERN:
 		state->apply_test_solid = (ctrl->val == S5K3L6XX_TEST_PATTERN_SOLID_COLOR);
 		v4l2_dbg(3, debug, sd, "Setting pattern %d", ctrl->val);
@@ -922,6 +927,9 @@ static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 	// Total gain: 32 <=> 1x
 	ctrls->analog_gain = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_ANALOGUE_GAIN,
 					0x20, 0x200, 1, 0x20);
+
+	ctrls->digital_gain = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_DIGITAL_GAIN,
+					0x84, 0xfff, 1, 0x100);
 
 	v4l2_ctrl_new_std_menu_items(hdl, ops, V4L2_CID_TEST_PATTERN,
 				     ARRAY_SIZE(s5k3l6_test_pattern_menu) - 1,
