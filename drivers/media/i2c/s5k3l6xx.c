@@ -88,10 +88,6 @@ struct s5k3l6xx_reg {
 static const struct s5k3l6xx_reg frame_1052x780px_8bit_xfps_2lane[] = {
 	// extclk freq 25MHz (doesn't seem to matter)
 	{ 0x0136, 0x1900,       2 },
-	// integration time: pixels:
-	{ 0x0200, 0x0000,       2 },
-	// integration time: lines
-	{ 0x0202, 0x1000,       2 },
 
 	// x_output_size
 	{ 0x034c, 0x041c,       2 },
@@ -127,10 +123,6 @@ static const struct s5k3l6xx_reg frame_1052x780px_8bit_xfps_2lane[] = {
 static const struct s5k3l6xx_reg frame_2104x1560px_8bit_xfps_2lane[] = {
 	// extclk freq 25MHz (doesn't seem to matter)
 	{ 0x0136, 0x1900,       2 },
-	// integration time: pixels:
-	{ 0x0200, 0x0000,       2 },
-	// integration time: lines (might be max by default)
-	{ 0x0202, 0x1000,       2 },
 
 	// x_output_size
 	{ 0x034c, 0x0838,       2 },
@@ -166,10 +158,6 @@ static const struct s5k3l6xx_reg frame_2104x1560px_8bit_xfps_2lane[] = {
 static const struct s5k3l6xx_reg frame_4208x3120px_8bit_xfps_2lane[] = {
 	// extclk freq (doesn't actually matter)
 	{ 0x0136, 0x1900,       2 },
-	// integration time: pixels:
-	{ 0x0200, 0x0000,       2 },
-	// integration time: lines (might be max by default)
-	{ 0x0202, 0x1000,       2 },
 
 	// x_output_size
 	{ 0x034c, 0x1070,       2 },
