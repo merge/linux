@@ -102,8 +102,6 @@ static const struct s5k3l6xx_reg frame_1052x780px_8bit_xfps_2lane[] = {
 	// op_pll_multiplier, default 0064
 	{ 0x030e, 0x0036,       2 },
 
-	// analog gain
-	{ 0x0204, 0x0100,       2 },
 	// y_addr_start
 	{ 0x0346, 0x0000,       2 },
 	// end = y_output_size * binning_factor + y_addr_start
