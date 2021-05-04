@@ -626,7 +626,7 @@ out:
 
 static void s5k3l6xx_hw_set_stream(struct s5k3l6xx *state, int enable)
 {
-	v4l2_dbg(3, debug, &state->sd, "set_dtream sd %px", (void*)&state->sd);
+	v4l2_dbg(3, debug, &state->sd, "set_stream %d", enable);
 	s5k3l6xx_i2c_write(state, S5K3L6XX_REG_MODE_SELECT, enable ? S5K3L6XX_MODE_STREAMING : S5K3L6XX_MODE_STANDBY);
 }
 
@@ -678,7 +678,6 @@ static int s5k3l6xx_enum_mbus_code(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_pad_config *cfg,
 				 struct v4l2_subdev_mbus_code_enum *code)
 {
-	v4l2_dbg(3, debug, sd, "enum_mbus idx %d", code->index);
 	if (code->index >= ARRAY_SIZE(s5k3l6xx_frames))
 		return -EINVAL;
 	code->code = s5k3l6xx_frames[code->index].code;
@@ -734,7 +733,6 @@ static int s5k3l6xx_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_confi
 {
 	struct v4l2_mbus_framefmt *mf;
 
-	v4l2_dbg(3, debug, sd, "get_fmt");
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		mf = v4l2_subdev_get_try_format(sd, cfg, fmt->pad);
 		fmt->format = *mf;
@@ -1278,8 +1276,7 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 	ret = s5k3l6xx_initialize_ctrls(state);
 	if (ret < 0)
 		goto err_me;
-	v4l2_dbg(1, debug, &state->sd, "pre-register sd %p ctrls %p",
-		  (void*)&state->sd, (void*)&state->sd.ctrl_handler);
+
 	ret = v4l2_async_register_subdev(&state->sd);
 	if (ret < 0)
 		goto err_ctrl;
