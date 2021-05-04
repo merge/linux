@@ -926,7 +926,7 @@ static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 					0x20, 0x200, 1, 0x20);
 
 	ctrls->digital_gain = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_DIGITAL_GAIN,
-					0x84, 0xfff, 1, 0x100);
+					0x84, 0x300, 1, 0x100);
 
 	v4l2_ctrl_new_std_menu_items(hdl, ops, V4L2_CID_TEST_PATTERN,
 				     ARRAY_SIZE(s5k3l6_test_pattern_menu) - 1,
