@@ -641,6 +641,15 @@ static irqreturn_t __bq25890_handle_irq(struct bq25890_device *bq)
 	if (!memcmp(&bq->state, &new_state, sizeof(new_state)))
 		return IRQ_NONE;
 
+	if (new_state.chrg_fault != bq->state.chrg_fault) {
+		if (new_state.chrg_fault)
+			dev_err(bq->dev, "Charge fault - new fault old: %d new: %d\n",
+				bq->state.chrg_fault, new_state.chrg_fault);
+		else
+			dev_info(bq->dev, "Charge fault - fault cleared old: %d new: %d\n",
+				bq->state.chrg_fault, new_state.chrg_fault);
+	}
+
 	if (!new_state.online && bq->state.online) {	    /* power removed */
 		/* disable ADC */
 		ret = bq25890_field_write(bq, F_CONV_RATE, 0);
