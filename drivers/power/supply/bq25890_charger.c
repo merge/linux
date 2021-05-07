@@ -98,6 +98,7 @@ struct bq25890_state {
 	u8 vsys_status;
 	u8 boost_fault;
 	u8 bat_fault;
+	u8 ntc_fault;
 };
 
 struct bq25890_device {
@@ -420,6 +421,14 @@ enum bq25890_chrg_fault {
 	CHRG_FAULT_TIMER_EXPIRED,
 };
 
+enum bq25890_ntc_fault {
+	NTC_FAULT_NORMAL,
+	NTC_FAULT_BUCK_COLD,
+	NTC_FAULT_BUCK_HOT,
+	NTC_FAULT_BOOST_COLD = 5,
+	NTC_FAULT_BOOST_HOT
+};
+
 static bool bq25890_is_adc_property(enum power_supply_property psp)
 {
 	switch (psp) {
@@ -497,14 +506,19 @@ static int bq25890_power_supply_get_property(struct power_supply *psy,
 		break;
 
 	case POWER_SUPPLY_PROP_HEALTH:
-		if (!state.chrg_fault && !state.bat_fault && !state.boost_fault)
+		if (!state.chrg_fault && !state.bat_fault && !state.boost_fault && !state.ntc_fault)
 			val->intval = POWER_SUPPLY_HEALTH_GOOD;
 		else if (state.bat_fault)
 			val->intval = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 		else if (state.chrg_fault == CHRG_FAULT_TIMER_EXPIRED)
 			val->intval = POWER_SUPPLY_HEALTH_SAFETY_TIMER_EXPIRE;
-		else if (state.chrg_fault == CHRG_FAULT_THERMAL_SHUTDOWN)
+		else if (state.chrg_fault == CHRG_FAULT_THERMAL_SHUTDOWN ||
+			 state.ntc_fault == NTC_FAULT_BUCK_HOT ||
+			 state.ntc_fault == NTC_FAULT_BOOST_HOT)
 			val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
+		else if (state.ntc_fault == NTC_FAULT_BUCK_COLD ||
+			 state.ntc_fault == NTC_FAULT_BOOST_COLD)
+			val->intval = POWER_SUPPLY_HEALTH_COLD;
 		else
 			val->intval = POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
 		break;
@@ -611,7 +625,8 @@ static int bq25890_get_chip_state(struct bq25890_device *bq,
 		{F_VSYS_STAT,	&state->vsys_status},
 		{F_BOOST_FAULT, &state->boost_fault},
 		{F_BAT_FAULT,	&state->bat_fault},
-		{F_CHG_FAULT,	&state->chrg_fault}
+		{F_CHG_FAULT,	&state->chrg_fault},
+		{F_NTC_FAULT,	&state->ntc_fault}
 	};
 
 	for (i = 0; i < ARRAY_SIZE(state_fields); i++) {
@@ -622,11 +637,39 @@ static int bq25890_get_chip_state(struct bq25890_device *bq,
 		*state_fields[i].data = ret;
 	}
 
-	dev_dbg(bq->dev, "S:CHG/PG/VSYS=%d/%d/%d, F:CHG/BOOST/BAT=%d/%d/%d\n",
+	dev_dbg(bq->dev, "S:CHG/PG/VSYS=%d/%d/%d, F:CHG/BOOST/BAT/NTC=%d/%d/%d/%d\n",
 		state->chrg_status, state->online, state->vsys_status,
-		state->chrg_fault, state->boost_fault, state->bat_fault);
+		state->chrg_fault, state->boost_fault, state->bat_fault,
+		state->ntc_fault);
 
 	return 0;
+}
+
+static void bq25890_log_ntc_faults(struct bq25890_device *bq, struct bq25890_state *new_state)
+{
+	if (new_state->ntc_fault != bq->state.ntc_fault)
+		return;
+
+	switch(new_state->ntc_fault) {
+	case NTC_FAULT_NORMAL:
+		dev_info(bq->dev, "NTC state normal\n");
+		break;
+	case NTC_FAULT_BOOST_COLD:
+		dev_err(bq->dev, "NTC state boost cold\n");
+		break;
+	case NTC_FAULT_BOOST_HOT:
+		dev_err(bq->dev, "NTC state boost hot\n");
+		break;
+	case NTC_FAULT_BUCK_COLD:
+		dev_err(bq->dev, "NTC state buck cold\n");
+		break;
+	case NTC_FAULT_BUCK_HOT:
+		dev_err(bq->dev, "NTC state buck hot\n");
+		break;
+	default:
+		dev_err(bq->dev, "NTC state UNKNOWN\n");
+		break;
+	}
 }
 
 static irqreturn_t __bq25890_handle_irq(struct bq25890_device *bq)
@@ -640,6 +683,8 @@ static irqreturn_t __bq25890_handle_irq(struct bq25890_device *bq)
 
 	if (!memcmp(&bq->state, &new_state, sizeof(new_state)))
 		return IRQ_NONE;
+
+	bq25890_log_ntc_faults(bq, &new_state);
 
 	if (new_state.chrg_fault != bq->state.chrg_fault) {
 		if (new_state.chrg_fault)
