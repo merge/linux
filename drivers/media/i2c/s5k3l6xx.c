@@ -617,10 +617,6 @@ static int s5k3l6xx_set_power(struct v4l2_subdev *sd, int on)
 
 out:
 	mutex_unlock(&state->lock);
-
-	if (!ret && on)
-		ret = v4l2_ctrl_handler_setup(&state->ctrls.handler);
-
 	return ret;
 }
 
@@ -649,11 +645,12 @@ static int s5k3l6xx_s_stream(struct v4l2_subdev *sd, int on)
 			return ret;
 		}
 
-		mutex_lock(&state->lock);
-
-		s5k3l6xx_hw_set_config(state);
+		ret = v4l2_ctrl_handler_setup(&state->ctrls.handler);
 		if (ret < 0)
 			goto out;
+
+		mutex_lock(&state->lock);
+		s5k3l6xx_hw_set_config(state);
 		s5k3l6xx_hw_set_stream(state, 1);
 	} else {
 		mutex_lock(&state->lock);
