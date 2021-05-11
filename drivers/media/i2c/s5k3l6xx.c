@@ -645,8 +645,7 @@ static int s5k3l6xx_s_stream(struct v4l2_subdev *sd, int on)
 	} else {
 		mutex_lock(&state->lock);
 		s5k3l6xx_hw_set_stream(state, 0);
-		pm_runtime_mark_last_busy(&c->dev);
-		pm_runtime_put_autosuspend(&c->dev);
+		pm_runtime_put(&c->dev);
 	}
 	ret = s5k3l6xx_clear_error(state);
 	if (!ret)
@@ -869,8 +868,7 @@ static int s5k3l6xx_s_ctrl(struct v4l2_ctrl *ctrl)
 	ret = s5k3l6xx_clear_error(state);
 
 	if (in_use) { // came from other context than resume, need to manage PM
-		pm_runtime_mark_last_busy(&c->dev);
-		pm_runtime_put_autosuspend(&c->dev);
+		pm_runtime_put(&c->dev);
 	}
 unlock:
 	mutex_unlock(&state->lock);
@@ -1272,8 +1270,6 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 
 	pm_runtime_set_active(&c->dev);
 	pm_runtime_enable(&c->dev);
-	pm_runtime_set_autosuspend_delay(&c->dev, 3000);
-	pm_runtime_use_autosuspend(&c->dev);
 
 	// Default frame.
 	state->frame_fmt = &s5k3l6xx_frames[0];
