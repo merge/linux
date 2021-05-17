@@ -438,7 +438,8 @@ static void imx7_csi_configure(struct imx7_csi *csi)
 		stride = out_pix->width;
 	}
 
-	if (!csi->is_csi2) {
+	/* XXX hack: always use is_csi2 */
+	if (false) {
 		cr1 = BIT_SOF_POL | BIT_REDGE | BIT_GCLK_MODE | BIT_HSYNC_POL
 		    | BIT_FCC | BIT_MCLKDIV(1) | BIT_MCLKEN;
 
