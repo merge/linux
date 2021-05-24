@@ -1819,9 +1819,14 @@ fail:
 int rsi_validate_oper_mode(u16 oper_mode)
 {
 #if defined(CONFIG_RS9116_PURISM)
-	if ((oper_mode == 13) || (oper_mode == 14))
+	if ((oper_mode == 5) || (oper_mode == 6))
 		return 0;
-	else {
+	if ((oper_mode == 13) || (oper_mode == 14)) {
+		redpine_dbg(ERR_ZONE,
+				"Operating mode %d is only supported prior to firmware 2.x\n",
+				oper_mode);
+		return 0;
+	} else {
 		redpine_dbg(ERR_ZONE,
 				"Operating mode %d is not supported, "
 				"it should be either 13 or 14\n",
