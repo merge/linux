@@ -29,6 +29,7 @@ Depends:
  kmod,
  linux-base,
 Breaks:
+ gstreamer1.0-plugins-bad (<< 1.18.4-3pureos1),
  librem5-devkit-base (<< 0.0.10),
  librem5-base-defaults (<< 36pureos1),
 Description: Linux 5.12 for the Librem 5 and its devkit
