@@ -564,7 +564,7 @@ static void s5k3l6xx_gpio_deassert(struct s5k3l6xx *state, int id)
 static int s5k3l6xx_power_on(struct s5k3l6xx *state)
 {
 	int ret;
-
+	v4l2_dbg(1, debug, &state->sd, "power_ON\n");
 	ret = regulator_enable(state->supply);
 	if (ret < 0)
 		goto err;
@@ -595,7 +595,7 @@ err:
 static int s5k3l6xx_power_off(struct s5k3l6xx *state)
 {
 	int ret;
-
+	v4l2_dbg(1, debug, &state->sd, "power_OFF\n");
 	state->streaming = 0;
 	state->apply_cfg = 0;
 	state->apply_crop = 0;
@@ -1281,6 +1281,8 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 	test = s5k3l6xx_read(state, S5K3L6XX_REG_MODEL_ID_L);
 	if (test != S5K3L6XX_MODEL_ID_L) {
 		dev_err(&c->dev, "model mismatch: 0x%X != 0x30\n", test);
+		ret = -EINVAL;
+		goto err_me;
 	} else {
 		dev_info(&c->dev, "model low: 0x%X\n", test);
 	}
@@ -1288,6 +1290,8 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 	test = s5k3l6xx_read(state, S5K3L6XX_REG_MODEL_ID_H);
 	if (test != S5K3L6XX_MODEL_ID_H) {
 		dev_err(&c->dev, "model mismatch: 0x%X != 0xC6\n", test);
+		ret = -EINVAL;
+		goto err_me;
 	} else {
 		dev_info(&c->dev, "model high: 0x%X\n", test);
 	}
@@ -1295,6 +1299,8 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 	test = s5k3l6xx_read(state, S5K3L6XX_REG_REVISION_NUMBER);
 	if (test != S5K3L6XX_REVISION_NUMBER) {
 		dev_err(&c->dev, "revision mismatch: 0x%X != 0xB0\n", test);
+		ret = -EINVAL;
+		goto err_me;
 	} else {
 		dev_info(&c->dev, "revision number: 0x%X\n", test);
 	}
