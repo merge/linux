@@ -342,12 +342,30 @@ static void rfkill_hks_shutdown(struct platform_device *pdev)
 
 	ret = rfkill_hks_suspend(&pdev->dev);
 	if (ret)
-		dev_err(&pdev->dev, "failed to shutdown\n");
+		dev_err(&pdev->dev, "failed to suspend\n");
 }
+
+
+static int rfkill_hks_remove(struct platform_device *pdev)
+{
+	int i;
+	struct rfkill_hks *ddata = dev_get_drvdata(&pdev->dev);
+	const struct rfkill_hks_pdata *pdata = ddata->pdata;
+
+	for (i = 0; i < pdata->nswitches; i++) {
+	  struct rfkill_hks_data *sdata = &ddata->data[i];
+
+	  rfkill_unregister(sdata->rfkill);
+	}
+
+	return 0;
+}
+
 
 static struct platform_driver rfkill_hks_device_driver = {
 	.probe		= rfkill_hks_probe,
 	.shutdown	= rfkill_hks_shutdown,
+	.remove         = rfkill_hks_remove,
 	.driver		= {
 		.name	= "rfkill-hks",
 		.pm	= &rfkill_hks_pm_ops,
