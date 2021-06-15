@@ -131,8 +131,9 @@ static int rfkill_hks_setup_rfkill(struct platform_device *pdev,
 
 	sdata->hks = hks;
 	sdata->dev = dev;
-	sdata->gpiod = devm_fwnode_gpiod_get(dev, child,
-					     NULL, GPIOD_IN, desc);
+	sdata->gpiod = devm_fwnode_gpiod_get(dev, child, NULL,
+					     GPIOD_IN | GPIOD_FLAGS_BIT_NONEXCLUSIVE,
+					     desc);
 	if (IS_ERR(sdata->gpiod)) {
 		ret = PTR_ERR(sdata->gpiod);
 		if (ret != -EPROBE_DEFER)
@@ -176,7 +177,7 @@ static int rfkill_hks_setup_rfkill(struct platform_device *pdev,
 
 	ret = devm_request_any_context_irq(dev, sdata->irq,
 					   rfkill_hks_gpio_isr,
-					   IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+					   IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_SHARED,
 					   desc, sdata);
 	if (ret < 0) {
 		dev_err(dev, "Unable to claim irq %d; error %d\n",
