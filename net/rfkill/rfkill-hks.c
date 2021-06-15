@@ -48,7 +48,7 @@ struct rfkill_hks_data {
 	struct rfkill *rfkill;
 
 	struct delayed_work work;
-	unsigned int software_debounce;	/* in msecs, for GPIO-driven buttons */
+	unsigned int software_debounce;	/* in msecs */
 
 	unsigned int irq;
 };
