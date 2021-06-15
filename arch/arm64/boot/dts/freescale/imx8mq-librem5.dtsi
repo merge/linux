@@ -269,6 +269,12 @@
 			type = <RFKILL_MIC>;
 		};
 
+		camera-hks {
+			gpios = <&gpio4 1 GPIO_ACTIVE_LOW>;
+			name = "camera-hks";
+			type = <RFKILL_CAMERA>;
+		};
+
 		wlan-hks {
 			gpios = <&gpio4 10 GPIO_ACTIVE_LOW>;
 			name = "wlan-hks";
