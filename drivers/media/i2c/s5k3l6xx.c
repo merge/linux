@@ -78,6 +78,17 @@ module_param(debug, int, 0644);
 #define S5K3L6XX_CIS_WIDTH		4208
 #define S5K3L6XX_CIS_HEIGHT		3120
 
+
+static const char * const s5k3l6xx_supply_names[] = {
+	// FIXME: I have no idea, just copied this
+	"vddio", /* Digital I/O (1.8V or 2.8V) */
+	//"vdda", /* Analog (2.8V) */
+	//"vddd", /* Digital Core (1.2V) */
+};
+
+#define S5K3L6XX_NUM_SUPPLIES ARRAY_SIZE(s5k3l6xx_supply_names)
+
+
 struct s5k3l6xx_reg {
 	u16 address;
 	u16 val;
@@ -270,9 +281,9 @@ struct regstable {
 
 struct s5k3l6xx {
 	struct s5k3l6xx_gpio gpios[NUM_GPIOS];
+	struct regulator_bulk_data supplies[S5K3L6XX_NUM_SUPPLIES];
 	enum v4l2_mbus_type bus_type;
 	u8 nlanes;
-	struct regulator *supply;
 
 	struct clk *clock;
 	u32 mclk_frequency;
@@ -565,7 +576,8 @@ static int s5k3l6xx_power_on(struct s5k3l6xx *state)
 {
 	int ret;
 	v4l2_dbg(1, debug, &state->sd, "power_ON\n");
-	ret = regulator_enable(state->supply);
+	// Will this fail if any regulator is already enabled?
+	ret = regulator_bulk_enable(S5K3L6XX_NUM_SUPPLIES, state->supplies);
 	if (ret < 0)
 		goto err;
 
@@ -585,8 +597,7 @@ static int s5k3l6xx_power_on(struct s5k3l6xx *state)
 	return 0;
 
 err_reg_dis:
-	if (regulator_is_enabled(state->supply))
-		regulator_disable(state->supply);
+	regulator_bulk_disable(S5K3L6XX_NUM_SUPPLIES, state->supplies);
 err:
 	v4l2_err(&state->sd, "%s() failed (%d)\n", __func__, ret);
 	return ret;
@@ -605,10 +616,7 @@ static int s5k3l6xx_power_off(struct s5k3l6xx *state)
 	if (!IS_ERR(state->clock))
 		clk_disable_unprepare(state->clock);
 
-	if (!regulator_is_enabled(state->supply))
-		return 0;
-
-	ret = regulator_disable(state->supply);
+	ret = regulator_bulk_disable(S5K3L6XX_NUM_SUPPLIES, state->supplies);
 	if (ret < 0)
 		v4l2_err(&state->sd, "failed to disable regulators\n");
 	else
@@ -1182,17 +1190,6 @@ static int s5k3l6xx_configure_subdevs(struct s5k3l6xx *state,
 	return ret;
 }
 
-static int s5k3l6xx_configure_regulators(struct s5k3l6xx *state)
-{
-	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
-
-	state->supply = devm_regulator_get(&c->dev, "vddio");
-	if (IS_ERR(state->supply))
-		v4l2_err(c, "failed to get regulators\n");
-
-	return 0;
-}
-
 static int debug_add(void *data, u64 value)
 {
 	struct s5k3l6xx *state = data;
@@ -1230,6 +1227,7 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 {
 	struct s5k3l6xx *state;
 	int ret;
+	unsigned i;
 	u8 test;
 	struct dentry *d;
 
@@ -1257,9 +1255,13 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 		goto err_me;
 	}
 
-	ret = s5k3l6xx_configure_regulators(state);
+	for (i = 0; i < S5K3L6XX_NUM_SUPPLIES; i++)
+		state->supplies[i].supply = s5k3l6xx_supply_names[i];
+
+	ret = devm_regulator_bulk_get(&c->dev, S5K3L6XX_NUM_SUPPLIES,
+				      state->supplies);
 	if (ret < 0) {
-		pr_err("s5k3l6xx_configure_regulators: failed");
+		pr_err("s5k3l6xx configure regulators: failed");
 		goto err_me;
 	}
 
@@ -1315,6 +1317,8 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 
 	pm_runtime_set_active(&c->dev);
 	pm_runtime_enable(&c->dev);
+	// I don't really know why this idle is needed
+	pm_runtime_idle(&c->dev);
 
 	// Default frame.
 	state->frame_fmt = &s5k3l6xx_frames[0];
