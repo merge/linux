@@ -639,7 +639,7 @@ static int s5k3l6xx_set_power(struct v4l2_subdev *sd, int on)
 		goto out;
 
 	if (on) {
-		ret = s5k3l6xx_power_on(state); // TODO: test this
+		ret = s5k3l6xx_power_on(state);
 		if (ret < 0)
 			goto out;
 
@@ -647,7 +647,7 @@ static int s5k3l6xx_set_power(struct v4l2_subdev *sd, int on)
 		if (!ret)
 			state->power++;
 	} else {
-		s5k3l6xx_power_off(state);
+		ret = s5k3l6xx_power_off(state);
 		state->power--;
 	}
 
@@ -1275,7 +1275,6 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 	ret = s5k3l6xx_power_on(state);
 	if (ret < 0) {
 		pr_err("s5k3l6xx_power_on: failed");
-		ret = -EPROBE_DEFER;
 		goto err_me;
 	}
 	state->power = 1;
@@ -1284,7 +1283,7 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 	if (test != S5K3L6XX_MODEL_ID_L) {
 		dev_err(&c->dev, "model mismatch: 0x%X != 0x30\n", test);
 		ret = -EINVAL;
-		goto err_me;
+		goto err_power;
 	} else {
 		dev_info(&c->dev, "model low: 0x%X\n", test);
 	}
@@ -1293,7 +1292,7 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 	if (test != S5K3L6XX_MODEL_ID_H) {
 		dev_err(&c->dev, "model mismatch: 0x%X != 0xC6\n", test);
 		ret = -EINVAL;
-		goto err_me;
+		goto err_power;
 	} else {
 		dev_info(&c->dev, "model high: 0x%X\n", test);
 	}
@@ -1302,14 +1301,14 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 	if (test != S5K3L6XX_REVISION_NUMBER) {
 		dev_err(&c->dev, "revision mismatch: 0x%X != 0xB0\n", test);
 		ret = -EINVAL;
-		goto err_me;
+		goto err_power;
 	} else {
 		dev_info(&c->dev, "revision number: 0x%X\n", test);
 	}
 
 	ret = s5k3l6xx_initialize_ctrls(state);
 	if (ret < 0)
-		goto err_me;
+		goto err_power;
 
 	ret = v4l2_async_register_subdev(&state->sd);
 	if (ret < 0)
@@ -1345,6 +1344,8 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 
 err_ctrl:
 	v4l2_ctrl_handler_free(state->sd.ctrl_handler);
+err_power:
+	s5k3l6xx_power_off(state);
 err_me:
 	media_entity_cleanup(&state->sd.entity);
 	media_entity_cleanup(&state->cis_sd.entity);
