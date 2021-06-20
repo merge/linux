@@ -122,10 +122,8 @@ static const struct s5k3l6xx_reg frame_1052x780px_8bit_xfps_2lane[] = {
 	// Noise reduction
 	// The last 3 bits (0x0007) control some global brightness/noise pattern.
 	// They work slightly differently depending on the value of 307b:80
-	// It's not strictly necessary here,
-	// as the sensor seems to do the same correction without asking at 1:4 binning,
-	// but added to formalize the default value.
-	{ 0x3074, 0x0974, 2},
+	// Lower values seem to make analog gain behave in a non-linear way.
+	{ 0x3074, 0x0977, 2},
 };
 
 // Downscaled 1:2 in both directions.
@@ -167,7 +165,8 @@ static const struct s5k3l6xx_reg frame_2104x1560px_8bit_xfps_2lane[] = {
 	// The last 3 bits (0x0007) control some global brightness/noise pattern.
 	// They work slightly differently depending on the value of 307b:80
 	// 0x0972 makes focus pixels appear.
-	{ 0x3074, 0x0974, 2}, // 74, 75, 76, 77 all good for binning 1:2.
+	// Lower values seem to make analog gain behave in a non-linear way.
+	{ 0x3074, 0x0977, 2}, // 74, 75, 76, 77 all good for binning 1:2.
 
 	// filter out autofocus pixels
 	// FIXME: this should be behind a custom control instead
