@@ -607,7 +607,14 @@ static irqreturn_t tps6598x_interrupt(int irq, void *data)
 	}
 	trace_tps6598x_status(status);
 
-	if ((event1 | event2) & TPS_REG_INT_POWER_STATUS_UPDATE) {
+	/*
+	 * In practice it seems like pwr_status can change also if the
+	 * TPS_REG_INT_PP_SWITCH_CHANGED bit is set, so we interpret
+	 * either of the TPS_REG_INT_POWER_STATUS_UPDATE or
+	 * TPS_REG_INT_PP_SWITCH_CHANGED bits being set as a possible
+	 * power status change.
+	 */
+	if ((event1 | event2) & (TPS_REG_INT_POWER_STATUS_UPDATE | TPS_REG_INT_PP_SWITCH_CHANGED)) {
 		ret = tps6598x_read16(tps, TPS_REG_POWER_STATUS, &pwr_status);
 		if (ret < 0) {
 			dev_err(tps->dev, "failed to read power status: %d\n", ret);
