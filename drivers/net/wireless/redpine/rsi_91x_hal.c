@@ -1646,7 +1646,7 @@ load_9116_flash_fw:
 		if (flash_data_start != 0x5aa5)
 			redpine_dbg(ERR_ZONE, " *** No FW magic will try to load anyway ***\n");
 		status = rsi_load_9116_flash_fw(adapter);
-		mdelay(3000);
+		msleep(5000);
 		if (rsi_read_flash_fw_version(adapter) < 0)
 		    goto bl_cmd_fail;
 		rsi_print_version(common);
