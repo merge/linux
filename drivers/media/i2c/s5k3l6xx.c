@@ -80,10 +80,9 @@ module_param(debug, int, 0644);
 
 
 static const char * const s5k3l6xx_supply_names[] = {
-	// FIXME: I have no idea, just copied this
 	"vddio", /* Digital I/O (1.8V or 2.8V) */
-	//"vdda", /* Analog (2.8V) */
-	//"vddd", /* Digital Core (1.2V) */
+	"vdda", /* Analog (2.8V) */
+	"vddd", /* Digital Core (1.05V expected) */
 };
 
 #define S5K3L6XX_NUM_SUPPLIES ARRAY_SIZE(s5k3l6xx_supply_names)
