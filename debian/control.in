@@ -31,7 +31,7 @@ Depends:
 Breaks:
  gstreamer1.0-plugins-bad (<< 1.18.4-3pureos1),
  librem5-devkit-base (<< 0.0.10),
- librem5-base-defaults (<< 36pureos1),
+ librem5-base-defaults (<< 39pureos2),
  phosh (<< 0.12.0),
 Description: Linux %KREL_MAJOR% for the Librem 5 and its devkit
   The linux kernel, modules and corresponding other files for the Librem 5 and
