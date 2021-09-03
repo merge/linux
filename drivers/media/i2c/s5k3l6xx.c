@@ -224,7 +224,7 @@ static const struct s5k3l6xx_reg frame_4208x3120px_8bit_xfps_2lane[] = {
 };
 
 struct s5k3l6xx_gpio {
-	int gpio;
+	unsigned int gpio;
 	int level;
 };
 
@@ -372,41 +372,41 @@ static inline struct s5k3l6xx *to_s5k3l6xx(struct v4l2_subdev *sd)
 	return container_of(sd, struct s5k3l6xx, sd);
 }
 
-static u8 __s5k3l6xx_i2c_read(struct s5k3l6xx *state, u16 addr)
+struct s5k3l6xx_read_result {
+	u8 value;
+	int retcode;
+};
+
+static struct s5k3l6xx_read_result __s5k3l6xx_i2c_read(struct s5k3l6xx *state, u16 addr)
 {
 	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
 	__be16 w;
-	u8 res;
+	struct s5k3l6xx_read_result ret;
 	struct i2c_msg msg[] = {
 		{ .addr = c->addr, .flags = 0,
 		  .len = 2, .buf = (u8 *)&w },
 		{ .addr = c->addr, .flags = I2C_M_RD,
-		  .len = 1, .buf = (u8 *)&res },
+		  .len = 1, .buf = (u8 *)&ret.value },
 	};
-	int ret;
-
-	if (state->error)
-		return 0;
-
 	w = cpu_to_be16(addr);
-	ret = i2c_transfer(c->adapter, msg, 2);
+	ret.retcode = i2c_transfer(c->adapter, msg, 2);
 
-	if (ret != 2) {
-		v4l2_err(c, "i2c_read: error during transfer (%d)\n", ret);
-		state->error = ret;
+	if (ret.retcode != 2) {
+		v4l2_err(c, "i2c_read: error during transfer (%d)\n", ret.retcode);
 	}
-	return res;
+	return ret;
 }
 
-static u8 s5k3l6xx_i2c_read(struct s5k3l6xx *state, u16 addr)
+static struct s5k3l6xx_read_result s5k3l6xx_i2c_read(struct s5k3l6xx *state, u16 addr)
 {
 	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
-	u8 res = __s5k3l6xx_i2c_read(state, addr);
-	v4l2_dbg(3, debug, c, "i2c_read: 0x%04x : 0x%02x\n", addr, res);
-	return res;
+	struct s5k3l6xx_read_result ret;
+	ret = __s5k3l6xx_i2c_read(state, addr);
+	v4l2_dbg(3, debug, c, "i2c_read: 0x%04x : 0x%02x\n", addr, ret.value);
+	return ret;
 }
 
-static void s5k3l6xx_i2c_write(struct s5k3l6xx *state, u16 addr, u8 val)
+static int s5k3l6xx_i2c_write(struct s5k3l6xx *state, u16 addr, u8 val)
 {
 	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
 	u8 buf[3] = { addr >> 8, addr & 0xFF, val };
@@ -420,25 +420,20 @@ static void s5k3l6xx_i2c_write(struct s5k3l6xx *state, u16 addr, u8 val)
 
 	v4l2_dbg(3, debug, c, "i2c_write to 0x%04x : 0x%02x\n", addr, val);
 
-	if (state->error) {
-		v4l2_dbg(3, debug, c, "Write ignored\n");
-		return;
-	}
-
 	ret = i2c_transfer(c->adapter, msg, 1);
 
 	if (ret != 1) {
 		v4l2_err(c, "i2c_write: error during transfer (%d)\n", ret);
-		state->error = ret;
+		return ret;
 	}
 	// Not sure if actually needed. So really debugging code at the moment.
-	actual = s5k3l6xx_i2c_read(state, addr);
-	if (actual != val) {
+	actual = s5k3l6xx_i2c_read(state, addr).value;
+	if (actual != val)
 		v4l2_err(c, "i2c_write: value didn't stick. 0x%04x = 0x%02x != 0x%02x", addr, actual, val);
-	}
+	return 0;
 }
 
-static void s5k3l6xx_i2c_write2(struct s5k3l6xx *state, u16 addr, u16 val)
+static int s5k3l6xx_i2c_write2(struct s5k3l6xx *state, u16 addr, u16 val)
 {
 	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
 	u8 buf[4] = { addr >> 8, addr & 0xFF, (val >> 8) & 0xff, val & 0xff };
@@ -451,54 +446,59 @@ static void s5k3l6xx_i2c_write2(struct s5k3l6xx *state, u16 addr, u16 val)
 
 	v4l2_dbg(3, debug, c, "i2c_write to 0x%04x : 0x%04x\n", addr, val);
 
-	if (state->error) {
-		v4l2_dbg(3, debug, c, "Write ignored\n");
-		return;
-	}
-
 	ret = i2c_transfer(c->adapter, msg, 1);
 
+	// 1 message expected
 	if (ret != 1) {
 		v4l2_err(c, "i2c_write: error during transfer (%d)\n", ret);
-		state->error = ret;
+		return ret;
 	}
+	return 0;
 }
 
-static void s5k3l6xx_submit_regs(struct s5k3l6xx *state, const struct s5k3l6xx_reg *regs, u16 regcount) {
+static int s5k3l6xx_submit_regs(struct s5k3l6xx *state, const struct s5k3l6xx_reg *regs, u16 regcount) {
        unsigned i;
+       int ret = 0;
        for (i = 0; i < regcount; i++) {
 	       if (regs[i].size == 2)
-		       s5k3l6xx_i2c_write2(state, regs[i].address, regs[i].val);
+		       ret = s5k3l6xx_i2c_write2(state, regs[i].address, regs[i].val);
 	       else
-		       s5k3l6xx_i2c_write(state, regs[i].address, (u8)regs[i].val);
+		       ret = s5k3l6xx_i2c_write(state, regs[i].address, (u8)regs[i].val);
+	       if (ret < 0)
+		       break;
        }
+       return ret;
 }
 
-static u8 s5k3l6xx_read(struct s5k3l6xx *state, u16 addr)
+static struct s5k3l6xx_read_result s5k3l6xx_read(struct s5k3l6xx *state, u16 addr)
 {
 	return s5k3l6xx_i2c_read(state, addr);
 }
 
-static void s5k3l6xx_write(struct s5k3l6xx *state, u16 addr, u8 val)
+static int s5k3l6xx_write(struct s5k3l6xx *state, u16 addr, u8 val)
 {
-	s5k3l6xx_i2c_write(state, addr, val);
+	return s5k3l6xx_i2c_write(state, addr, val);
 }
 
-static void s5k3l6xx_submit_regstable(struct s5k3l6xx *state, const struct regstable *regs)
+static int s5k3l6xx_submit_regstable(struct s5k3l6xx *state, const struct regstable *regs)
 {
 	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
 	unsigned i;
+	int ret;
 	for (i = 0; i < regs->entry_count; i++) {
 		u16 addr = regs->entries[i].address;
 		u8 val = regs->entries[i].value;
 		if (debug >= 5) {
-			u8 res = __s5k3l6xx_i2c_read(state, addr);
-			if (res != val) {
-				v4l2_dbg(5, debug, c, "overwriting: 0x%04x : 0x%02x\n", addr, res);
+			struct s5k3l6xx_read_result res = __s5k3l6xx_i2c_read(state, addr);
+			if (res.retcode >= 0 && res.value != val) {
+				v4l2_dbg(5, debug, c, "overwriting: 0x%04x : 0x%02x\n", addr, res.value);
 			}
 		}
-		s5k3l6xx_i2c_write(state, addr, val);
+		ret = s5k3l6xx_i2c_write(state, addr, val);
+		if (ret < 0)
+			break;
 	}
+	return ret;
 }
 
 static int s5k3l6xx_find_pixfmt(const struct v4l2_mbus_framefmt *mf)
@@ -517,14 +517,6 @@ static int s5k3l6xx_find_pixfmt(const struct v4l2_mbus_framefmt *mf)
 	return c;
 }
 
-static int s5k3l6xx_clear_error(struct s5k3l6xx *state)
-{
-	int ret = state->error;
-
-	state->error = 0;
-	return ret;
-}
-
 static const struct s5k3l6xx_reg setstream[] = {
 	{ S5K3L6XX_REG_DATA_FORMAT, S5K3L6XX_DATA_FORMAT_RAW8, 2 },
 	// Noise reduction
@@ -533,24 +525,31 @@ static const struct s5k3l6xx_reg setstream[] = {
 	{ 0x307a, 0x0d00, 2 },
 };
 
-static void s5k3l6xx_hw_set_config(struct s5k3l6xx *state) {
+static int s5k3l6xx_hw_set_config(struct s5k3l6xx *state) {
 	const struct s5k3l6xx_frame *frame_fmt = state->frame_fmt;
+	int ret;
 	v4l2_dbg(3, debug, &state->sd, "Setting frame format %s", frame_fmt->name);
-	s5k3l6xx_submit_regs(state, frame_fmt->streamregs, frame_fmt->streamregcount);
+	ret = s5k3l6xx_submit_regs(state, frame_fmt->streamregs, frame_fmt->streamregcount);
+	if (ret < 0)
+		return ret;
 
 	// This may mess up PLL settings...
 	// If the above already enabled streaming (setfile A), we're also in trouble.
-	s5k3l6xx_submit_regs(state, setstream, ARRAY_SIZE(setstream));
-	s5k3l6xx_write(state, S5K3L6XX_REG_LANE_MODE, state->nlanes - 1);
+	ret = s5k3l6xx_submit_regs(state, setstream, ARRAY_SIZE(setstream));
+	if (ret < 0)
+		return ret;
 
-	s5k3l6xx_submit_regstable(state, &state->debug_regs);
+	ret = s5k3l6xx_write(state, S5K3L6XX_REG_LANE_MODE, state->nlanes - 1);
+	if (ret < 0)
+		return ret;
+
+	return s5k3l6xx_submit_regstable(state, &state->debug_regs);
 }
 
-static void s5k3l6xx_hw_set_test_pattern(struct s5k3l6xx *state, int id)
+static int s5k3l6xx_hw_set_test_pattern(struct s5k3l6xx *state, int id)
 {
-	s5k3l6xx_write(state, S5K3L6XX_REG_TEST_PATTERN_MODE, (u8)id);
+	return s5k3l6xx_write(state, S5K3L6XX_REG_TEST_PATTERN_MODE, (u8)id);
 }
-
 
 static void s5k3l6xx_gpio_assert(struct s5k3l6xx *state, int id)
 {
@@ -642,10 +641,7 @@ static int s5k3l6xx_set_power(struct v4l2_subdev *sd, int on)
 		ret = s5k3l6xx_power_on(state);
 		if (ret < 0)
 			goto out;
-
-		ret = s5k3l6xx_clear_error(state);
-		if (!ret)
-			state->power++;
+		state->power++;
 	} else {
 		ret = s5k3l6xx_power_off(state);
 		state->power--;
@@ -656,10 +652,10 @@ out:
 	return ret;
 }
 
-static void s5k3l6xx_hw_set_stream(struct s5k3l6xx *state, int enable)
+static int s5k3l6xx_hw_set_stream(struct s5k3l6xx *state, int enable)
 {
 	v4l2_dbg(3, debug, &state->sd, "set_stream %d", enable);
-	s5k3l6xx_i2c_write(state, S5K3L6XX_REG_MODE_SELECT, enable ? S5K3L6XX_MODE_STREAMING : S5K3L6XX_MODE_STANDBY);
+	return s5k3l6xx_i2c_write(state, S5K3L6XX_REG_MODE_SELECT, enable ? S5K3L6XX_MODE_STREAMING : S5K3L6XX_MODE_STANDBY);
 }
 
 static int s5k3l6xx_s_stream(struct v4l2_subdev *sd, int on)
@@ -677,29 +673,39 @@ static int s5k3l6xx_s_stream(struct v4l2_subdev *sd, int on)
 		if (ret < 0) {
 			dev_err(&c->dev, "%s: pm_runtime_get failed: %d\n",
 				__func__, ret);
+			// Not actually sure why this is _noidle.
+			// Because the device was not actually acquired?
 			pm_runtime_put_noidle(&c->dev);
 			return ret;
 		}
 
 		ret = v4l2_ctrl_handler_setup(&state->ctrls.handler);
 		if (ret < 0)
-			goto out;
-
+			goto fail_ctrl;
 		mutex_lock(&state->lock);
-		s5k3l6xx_hw_set_config(state);
-		s5k3l6xx_hw_set_stream(state, 1);
+		ret = s5k3l6xx_hw_set_config(state);
+		if (ret < 0)
+			goto fail_to_start;
+		ret = s5k3l6xx_hw_set_stream(state, 1);
+		if (ret < 0)
+			goto fail_to_start;
 	} else {
 		mutex_lock(&state->lock);
-		s5k3l6xx_hw_set_stream(state, 0);
+		ret = s5k3l6xx_hw_set_stream(state, 0);
+		if (ret < 0) {
+			mutex_unlock(&state->lock);
+			return ret;
+		}
 		pm_runtime_put(&c->dev);
 	}
-	ret = s5k3l6xx_clear_error(state);
-	if (!ret)
-		state->streaming = !state->streaming;
-
-out:
+	state->streaming = !state->streaming;
 	mutex_unlock(&state->lock);
-
+	return 0;
+fail_to_start:
+	mutex_unlock(&state->lock);
+fail_ctrl:
+	pm_runtime_put(&c->dev);
+	dev_err(&c->dev, "failed to start stream: %d\n", ret);
 	return ret;
 }
 
@@ -850,6 +856,15 @@ static const struct v4l2_subdev_video_ops s5k3l6xx_video_ops = {
  * V4L2 subdev controls
  */
 
+static int s5k3l6xx_set_test_color(struct s5k3l6xx *state, struct v4l2_ctrl *ctrl, u16 color_channel) {
+	int ret = s5k3l6xx_i2c_write2(state, color_channel, (u16)ctrl->val & 0x3ff);
+	if (ret < 0)
+		return ret;
+	if (state->apply_test_solid)
+		ret = s5k3l6xx_hw_set_test_pattern(state, S5K3L6XX_TEST_PATTERN_SOLID_COLOR);
+	return ret;
+}
+
 static int s5k3l6xx_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct v4l2_subdev *sd = ctrl_to_sd(ctrl);
@@ -877,41 +892,32 @@ static int s5k3l6xx_s_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_ANALOGUE_GAIN:
 		// Analog gain supported up to 0x200 (16). Gain = register / 32, so 0x20 gives gain 1.
-		s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_ANALOG_GAIN, (u16)ctrl->val & 0x3ff);
+		ret = s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_ANALOG_GAIN, (u16)ctrl->val & 0x3ff);
 		break;
 	case V4L2_CID_DIGITAL_GAIN:
-		s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_DIGITAL_GAIN, (u16)ctrl->val & 0xfff);
+		ret = s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_DIGITAL_GAIN, (u16)ctrl->val & 0xfff);
 		break;
 	case V4L2_CID_EXPOSURE:
-		s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_COARSE_INTEGRATION_TIME, (u16)ctrl->val);
+		ret = s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_COARSE_INTEGRATION_TIME, (u16)ctrl->val);
 		break;
 	case V4L2_CID_TEST_PATTERN:
 		state->apply_test_solid = (ctrl->val == S5K3L6XX_TEST_PATTERN_SOLID_COLOR);
 		v4l2_dbg(3, debug, sd, "Setting pattern %d", ctrl->val);
-		s5k3l6xx_hw_set_test_pattern(state, ctrl->val);
+		ret = s5k3l6xx_hw_set_test_pattern(state, ctrl->val);
 		break;
 	case V4L2_CID_TEST_PATTERN_RED:
-		s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_TEST_DATA_RED, (u16)ctrl->val & 0x3ff);
-		if (state->apply_test_solid)
-			s5k3l6xx_hw_set_test_pattern(state, S5K3L6XX_TEST_PATTERN_SOLID_COLOR);
+		ret = s5k3l6xx_set_test_color(state, ctrl, S5K3L6XX_REG_TEST_DATA_RED);
 		break;
 	case V4L2_CID_TEST_PATTERN_GREENR:
-		s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_TEST_DATA_GREENR, (u16)ctrl->val & 0x3ff);
-		if (state->apply_test_solid)
-			s5k3l6xx_hw_set_test_pattern(state, S5K3L6XX_TEST_PATTERN_SOLID_COLOR);
+		ret = s5k3l6xx_set_test_color(state, ctrl, S5K3L6XX_REG_TEST_DATA_GREENR);
 		break;
 	case V4L2_CID_TEST_PATTERN_BLUE:
-		s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_TEST_DATA_BLUE, (u16)ctrl->val & 0x3ff);
-		if (state->apply_test_solid)
-			s5k3l6xx_hw_set_test_pattern(state, S5K3L6XX_TEST_PATTERN_SOLID_COLOR);
+		ret = s5k3l6xx_set_test_color(state, ctrl, S5K3L6XX_REG_TEST_DATA_BLUE);
 		break;
 	case V4L2_CID_TEST_PATTERN_GREENB:
-		s5k3l6xx_i2c_write2(state, S5K3L6XX_REG_TEST_DATA_GREENB, (u16)ctrl->val & 0x3ff);
-		if (state->apply_test_solid)
-			s5k3l6xx_hw_set_test_pattern(state, S5K3L6XX_TEST_PATTERN_SOLID_COLOR);
+		ret = s5k3l6xx_set_test_color(state, ctrl, S5K3L6XX_REG_TEST_DATA_GREENB);
 		break;
 	}
-	ret = s5k3l6xx_clear_error(state);
 
 	if (in_use) { // came from other context than resume, need to manage PM
 		pm_runtime_put(&c->dev);
@@ -1228,7 +1234,7 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 	struct s5k3l6xx *state;
 	int ret;
 	unsigned i;
-	u8 test;
+	struct s5k3l6xx_read_result test;
 	struct dentry *d;
 
 	state = devm_kzalloc(&c->dev, sizeof(*state), GFP_KERNEL);
@@ -1280,31 +1286,37 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 	state->power = 1;
 
 	test = s5k3l6xx_read(state, S5K3L6XX_REG_MODEL_ID_L);
-	if (test != S5K3L6XX_MODEL_ID_L) {
-		dev_err(&c->dev, "model mismatch: 0x%X != 0x30\n", test);
+	if (test.retcode < 0) {
+		ret = test.retcode;
+		goto err_power;
+	} else if (test.value != S5K3L6XX_MODEL_ID_L) {
+		dev_err(&c->dev, "model mismatch: 0x%X != 0x30\n", test.value);
 		ret = -EINVAL;
 		goto err_power;
-	} else {
-		dev_info(&c->dev, "model low: 0x%X\n", test);
-	}
+	} else
+		dev_info(&c->dev, "model low: 0x%X\n", test.value);
 
 	test = s5k3l6xx_read(state, S5K3L6XX_REG_MODEL_ID_H);
-	if (test != S5K3L6XX_MODEL_ID_H) {
-		dev_err(&c->dev, "model mismatch: 0x%X != 0xC6\n", test);
+	if (test.retcode < 0) {
+		ret = test.retcode;
+		goto err_power;
+	} else if (test.value != S5K3L6XX_MODEL_ID_H) {
+		dev_err(&c->dev, "model mismatch: 0x%X != 0xC6\n", test.value);
 		ret = -EINVAL;
 		goto err_power;
-	} else {
-		dev_info(&c->dev, "model high: 0x%X\n", test);
-	}
+	} else
+		dev_info(&c->dev, "model high: 0x%X\n", test.value);
 
 	test = s5k3l6xx_read(state, S5K3L6XX_REG_REVISION_NUMBER);
-	if (test != S5K3L6XX_REVISION_NUMBER) {
-		dev_err(&c->dev, "revision mismatch: 0x%X != 0xB0\n", test);
+	if (test.retcode < 0) {
+		ret = test.retcode;
+		goto err_power;
+	} else if (test.value != S5K3L6XX_REVISION_NUMBER) {
+		dev_err(&c->dev, "revision mismatch: 0x%X != 0xB0\n", test.value);
 		ret = -EINVAL;
 		goto err_power;
-	} else {
-		dev_info(&c->dev, "revision number: 0x%X\n", test);
-	}
+	} else
+		dev_info(&c->dev, "revision number: 0x%X\n", test.value);
 
 	ret = s5k3l6xx_initialize_ctrls(state);
 	if (ret < 0)
