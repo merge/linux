@@ -233,9 +233,8 @@ enum s5k3l6xx_gpio_id {
 };
 
 #define PAD_CIS 0
-#define PAD_OUT 1
 #define NUM_CIS_PADS 1
-#define NUM_ISP_PADS 2
+#define NUM_ISP_PADS 1
 
 
 struct s5k3l6xx_frame {
@@ -264,6 +263,9 @@ struct s5k3l6xx_ctrls {
 		struct v4l2_ctrl *analog_gain;
 		struct v4l2_ctrl *digital_gain;
 	};
+	struct { /* Link properties */
+		struct v4l2_ctrl *link_freq;
+	};
 };
 
 struct regstable_entry {
@@ -291,7 +293,6 @@ struct s5k3l6xx {
 	struct media_pad cis_pad;
 
 	struct v4l2_subdev sd;
-	struct media_pad pads[NUM_ISP_PADS];
 
 	/* protects the struct members below */
 	struct mutex lock;
@@ -765,6 +766,18 @@ static int s5k3l6xx_try_cis_format(struct v4l2_mbus_framefmt *mf)
 	return pixfmt;
 }
 
+static void s5k3l6xx_get_current_cis_format(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *mf)
+{
+	struct s5k3l6xx *state = to_s5k3l6xx(sd);
+	// FIXME: This won't work for debug mode,
+	// which is meant to adjust to whatever userspace wants.
+	// Maybe save what userspace set last.
+	mf->width = state->frame_fmt->width;
+	mf->height = state->frame_fmt->height;
+	mf->code = state->frame_fmt->code;
+	mf->colorspace = V4L2_COLORSPACE_RAW;
+}
+
 static int s5k3l6xx_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg,
 			  struct v4l2_subdev_format *fmt)
 {
@@ -773,14 +786,17 @@ static int s5k3l6xx_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_confi
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		mf = v4l2_subdev_get_try_format(sd, cfg, fmt->pad);
 		fmt->format = *mf;
+		dev_err(sd->dev, "try mf %dx%d", mf->width, mf->height);
 		return 0;
 	}
 
 	mf = &fmt->format;
 	if (fmt->pad == PAD_CIS) {
-		s5k3l6xx_try_cis_format(mf);
+		s5k3l6xx_get_current_cis_format(sd, mf);
+		dev_err(sd->dev, "mf %dx%d", mf->width, mf->height);
 		return 0;
 	}
+	dev_err(sd->dev, "Not a CIS pad! %d", fmt->pad);
 	return 0;
 }
 
@@ -790,6 +806,7 @@ static int s5k3l6xx_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_confi
 	struct v4l2_mbus_framefmt *mf = &fmt->format;
 	struct s5k3l6xx *state = to_s5k3l6xx(sd);
 	int pixfmt_idx = 0;
+
 	mf->field = V4L2_FIELD_NONE;
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
@@ -804,6 +821,8 @@ static int s5k3l6xx_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_confi
 		return -EBUSY;
 	}
 
+	// FIXME: calculate link freqs
+	__v4l2_ctrl_s_ctrl(state->ctrls.link_freq, 80001337);
 	if (state->debug_frame) {
 		state->frame_fmt = &s5k3l6xx_frame_debug;
 		// Keep frame width/height as requested.
@@ -821,7 +840,6 @@ static int s5k3l6xx_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_confi
 
 	mf->code = state->frame_fmt->code;
 	mf->colorspace = V4L2_COLORSPACE_RAW;
-
 	mutex_unlock(&state->lock);
 	return 0;
 }
@@ -941,6 +959,10 @@ static const char * const s5k3l6_test_pattern_menu[] = {
 	"Address",
 };
 
+static const s64 s5k3l6xx_link_freqs_menu[] = {
+	80001337, // FIXME
+};
+
 static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 {
 	const struct v4l2_ctrl_ops *ops = &s5k3l6xx_ctrl_ops;
@@ -974,6 +996,13 @@ static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_TEST_PATTERN_GREENR, 0, 1023, 1, 512);
 	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_TEST_PATTERN_BLUE, 0, 1023, 1, 512);
 	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_TEST_PATTERN_GREENB, 0, 1023, 1, 512);
+
+
+	ctrls->link_freq = v4l2_ctrl_new_int_menu(hdl, ops, V4L2_CID_LINK_FREQ,
+						  ARRAY_SIZE(s5k3l6xx_link_freqs_menu) - 1,
+						  0, s5k3l6xx_link_freqs_menu);
+
+	ctrls->link_freq->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
 	if (hdl->error) {
 		v4l2_err(&state->sd, "error creating controls (%d)\n",
