@@ -1305,6 +1305,7 @@
 &mipi_dsi {
 	#address-cells = <1>;
 	#size-cells = <0>;
+	fsl,clock-drop-level = <1>;
 	status = "okay";
 
 	lcd_panel: panel@0 {
