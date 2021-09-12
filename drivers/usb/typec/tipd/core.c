@@ -119,6 +119,7 @@ struct tps6598x {
 static enum power_supply_property tps6598x_psy_props[] = {
 	POWER_SUPPLY_PROP_USB_TYPE,
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 };
@@ -797,6 +798,9 @@ static int tps6598x_psy_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = tps6598x_psy_get_online(tps, val);
+		break;
+	case POWER_SUPPLY_PROP_PRESENT:
+		val->intval = !!tps->partner;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		ret = tps6598x_psy_get_max_current(tps, val);
