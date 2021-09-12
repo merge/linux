@@ -1235,6 +1235,8 @@ static int bq25890_probe(struct i2c_client *client,
 		goto battery_fail;
 	}
 
+	bq25890_external_power_changed(bq->charger);
+
 	return 0;
 
 battery_fail:
