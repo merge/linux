@@ -990,6 +990,13 @@ static int tps6598x_probe(struct i2c_client *client)
 		ret = tps6598x_connect(tps, status);
 		if (ret)
 			dev_err(&client->dev, "failed to register partner\n");
+
+		if ((TPS_POWER_STATUS_PWROPMODE(tps->pwr_status) == TYPEC_PWR_MODE_PD) &&
+		    (!(status & TPS_STATUS_PORTROLE))) {
+			ret = tps6598x_get_active_pd_contract(tps);
+			if (ret)
+				dev_err(tps->dev, "failed to read pd contract: %d\n", ret);
+		}
 	} else {
 		tps6598x_mask_cc_int(tps, true);
 	}
