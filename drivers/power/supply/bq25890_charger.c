@@ -849,6 +849,20 @@ static char *bq25890_charger_supplied_to[] = {
 };
 
 
+static int bq25890_set_otg(struct bq25890_device *bq, bool otg_en)
+{
+	int ret;
+	if (bq->otg_en) {
+		dev_info(bq->dev, "%sabling OTG_EN pin\n", otg_en ? "En" : "Dis");
+		gpiod_set_value_cansleep(bq->otg_en, otg_en);
+	}
+	ret = bq25890_field_write(bq, F_OTG_CFG, otg_en);
+	if (ret < 0)
+		dev_err(bq->dev, "Failed to %sable otg: %d\n", otg_en ? "en" : "dis", ret);
+
+	return ret;
+}
+
 static void bq25890_external_power_changed(struct power_supply *psy)
 {
 	struct bq25890_device *bq = power_supply_get_drvdata(psy);
@@ -867,13 +881,7 @@ static void bq25890_external_power_changed(struct power_supply *psy)
 	}
 
 	if (supplied) {
-		if (bq->otg_en) {
-			dev_info(bq->dev, "Disabling OTG_EN pin\n");
-			gpiod_set_value_cansleep(bq->otg_en, 0);
-		}
-		ret = bq25890_field_write(bq, F_OTG_CFG, 0);
-		if (ret < 0)
-			dev_err(bq->dev, "Failed to disable otg: %d\n", ret);
+		bq25890_set_otg(bq, 0);
 
 		if (!power_supply_get_property(psy_supply, POWER_SUPPLY_PROP_CURRENT_MAX, &val))
 			max_current = val.intval / 1000;
@@ -890,13 +898,10 @@ static void bq25890_external_power_changed(struct power_supply *psy)
 		if (ret < 0)
 			dev_err(bq->dev, "Failed to set IILIM: %d\n", ret);
 	} else {
-		if (bq->otg_en) {
-			dev_info(bq->dev, "Enabling OTG_EN pin\n");
-			gpiod_set_value_cansleep(bq->otg_en, 1);
-		}
-		ret = bq25890_field_write(bq, F_OTG_CFG, 1);
-		if (ret < 0)
-			dev_err(bq->dev, "Failed to enable otg: %d\n", ret);
+		if (!power_supply_get_property(psy_supply, POWER_SUPPLY_PROP_PRESENT, &val))
+			bq25890_set_otg(bq, val.intval);
+		else
+			dev_err(bq->dev, "Failed to get supply present\n");
 	}
 
 	power_supply_changed(bq->charger);
