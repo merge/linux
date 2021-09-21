@@ -536,6 +536,7 @@
 		monitored-battery = <&bat>;
 		ti,use-vinmin-threshold = <1>; /* enable VINDPM */
 		ti,vinmin-threshold = <3900000>; /* 3.9V */
+		power-supplies = <&typec_ptn5100>;
 	};
 };
 
