@@ -1102,6 +1102,7 @@
 			mipi_csi1: csi@30a70000 {
 				compatible = "fsl,imx8mq-mipi-csi2";
 				reg = <0x30a70000 0x1000>;
+				interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clk IMX8MQ_CLK_CSI1_CORE>,
 				   <&clk IMX8MQ_CLK_CSI1_ESC>,
 				   <&clk IMX8MQ_CLK_CSI1_PHY_REF>;
@@ -1154,6 +1155,7 @@
 			mipi_csi2: csi@30b60000 {
 				compatible = "fsl,imx8mq-mipi-csi2";
 				reg = <0x30b60000 0x1000>;
+				interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clk IMX8MQ_CLK_CSI2_CORE>,
 				   <&clk IMX8MQ_CLK_CSI2_ESC>,
 				   <&clk IMX8MQ_CLK_CSI2_PHY_REF>;
