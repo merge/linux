@@ -526,10 +526,15 @@
 		>;
 	};
 
-	pinctrl_csi: csigrp {
+	pinctrl_csi1: csi1grp {
 		fsl,pins = <
 			/* CSI1_NRST */
 			MX8MQ_IOMUXC_ENET_RXC_GPIO1_IO25	0x83
+		>;
+	};
+
+	pinctrl_csi2: csi2grp {
+		fsl,pins = <
 			/* CSI2_NRST */
 			MX8MQ_IOMUXC_ENET_RD0_GPIO1_IO26	0x83
 		>;
