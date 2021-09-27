@@ -37,6 +37,11 @@
 	maxim,battery-capacity = <3400000>; /* uAh */
 };
 
+&camera_front {
+	pinctrl-0 = <&pinctrl_csi1>, <&pinctrl_r3_camera_pwr>;
+	shutdown-gpios = <&gpio5 4 GPIO_ACTIVE_LOW>;
+};
+
 &bq25895 {
 	ti,charge-current = <1500000>; /* uA */
 };
