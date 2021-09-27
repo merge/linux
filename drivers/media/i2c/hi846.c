@@ -14,6 +14,7 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-fwnode.h>
+#include <linux/debugfs.h>
 
 #define HI846_MEDIA_BUS_FORMAT		MEDIA_BUS_FMT_SGBRG10_1X10
 #define HI846_RGB_DEPTH			10
@@ -1142,6 +1143,15 @@ struct hi846_datafmt {
 	enum v4l2_colorspace colorspace;
 };
 
+#define REGSTABLE_SIZE 4096
+
+struct hi846_reg debug_regstable[REGSTABLE_SIZE];
+
+struct hi846_reg_list debug_regstable_list = {
+	.num_of_regs = 0,
+	.regs = debug_regstable,
+};
+
 static const char * const hi846_supply_names[] = {
 	"vddio", /* Digital I/O (1.8V or 2.8V) */
 	"vdda", /* Analog (2.8V) */
@@ -1170,6 +1180,9 @@ struct hi846 {
 	struct mutex mutex; /* protect cur_mode, streaming and chip access */
 	const struct hi846_mode *cur_mode;
 	bool streaming;
+
+	u16 debug_address;
+	struct hi846_reg_list *debug_regs;
 };
 
 static inline struct hi846 *to_hi846(struct v4l2_subdev *sd)
@@ -1552,6 +1565,17 @@ static int hi846_start_streaming(struct hi846 *hi846)
 	}
 
 	hi846_set_video_mode(hi846, hi846->cur_mode->fps);
+
+	if (hi846->debug_regs->num_of_regs) {
+		dev_dbg(&client->dev, "OVERWRITING with %d debug regs\n",
+			hi846->debug_regs->num_of_regs);
+
+		ret = hi846_write_reg_list(hi846, hi846->debug_regs);
+		if (ret) {
+			dev_err(&client->dev, "failed to write debug regs: %d\n", ret);
+			return ret;
+		}
+	}
 
 	ret = __v4l2_ctrl_handler_setup(hi846->sd.ctrl_handler);
 	if (ret)
@@ -2048,10 +2072,54 @@ static int hi846_parse_dt(struct hi846 *hi846, struct device *dev)
 	return 0;
 }
 
+static int debug_add(void *data, u64 value)
+{
+	struct hi846 *hi846 = data;
+	struct hi846_reg entry = {
+		.address = hi846->debug_address,
+		.val = (u16)value,
+	};
+	struct i2c_client *c = v4l2_get_subdevdata(&hi846->sd);
+
+	dev_dbg(&c->dev, "debug add override nr. %d: 0x%04x 0x%04x\n",
+		hi846->debug_regs->num_of_regs, entry.address, entry.val);
+
+	if (hi846->debug_regs->num_of_regs >= REGSTABLE_SIZE)
+		return -EINVAL;
+
+	if (value != entry.val)
+		return -EINVAL;
+
+	memcpy((void *)&hi846->debug_regs->regs[hi846->debug_regs->num_of_regs],
+	       &entry,
+	       sizeof(entry));
+	hi846->debug_regs->num_of_regs++;
+
+	return 0;
+}
+
+static int debug_clear(void *data, u64 value)
+{
+	struct hi846 *hi846 = data;
+	struct i2c_client *c = v4l2_get_subdevdata(&hi846->sd);
+
+	(void)value;
+
+	dev_dbg(&c->dev, "debug clear\n");
+
+	hi846->debug_regs->num_of_regs = 0;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_add_ops, NULL, debug_add, "%llx\n");
+DEFINE_SIMPLE_ATTRIBUTE(debug_clear_ops, NULL, debug_clear, "%llu\n");
+
 static int hi846_probe(struct i2c_client *client)
 {
 	struct hi846 *hi846;
 	int ret;
+	struct dentry *d;
 	int i;
 	u32 mclk_freq;
 
@@ -2127,6 +2195,16 @@ static int hi846_probe(struct i2c_client *client)
 	pm_runtime_set_active(&client->dev);
 	pm_runtime_enable(&client->dev);
 	pm_runtime_idle(&client->dev);
+
+	hi846->debug_regs = &debug_regstable_list;
+
+	d = debugfs_create_dir("hi846", NULL);
+	if (IS_ERR(d))
+		dev_err(&client->dev, "debugfs create dir error\n");
+
+	debugfs_create_x16("address", 0600, d, &hi846->debug_address);
+	debugfs_create_file("add_value", 0200, d, (void *)hi846, &debug_add_ops);
+	debugfs_create_file("clear", 0200, d, (void *)hi846, &debug_clear_ops);
 
 	return 0;
 
