@@ -946,6 +946,27 @@
 	status = "okay";
 };
 
+&csi1 {
+	status = "okay";
+};
+
+&mipi_csi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	ports {
+		port@0 {
+			reg = <0>;
+
+			mipi1_sensor_ep: endpoint {
+				remote-endpoint = <&ov5640_mipi1_ep>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
 &mipi_dsi {
 	status = "okay";
 	#address-cells = <1>;
