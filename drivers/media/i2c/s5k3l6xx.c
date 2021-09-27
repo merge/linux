@@ -712,38 +712,6 @@ fail_ctrl:
 /*
  * V4L2 subdev pad level and video operations
  */
-static int s5k3l6xx_enum_mbus_code(struct v4l2_subdev *sd,
-				 struct v4l2_subdev_pad_config *cfg,
-				 struct v4l2_subdev_mbus_code_enum *code)
-{
-	if (code->index >= ARRAY_SIZE(s5k3l6xx_frames))
-		return -EINVAL;
-	code->code = s5k3l6xx_frames[code->index].code;
-	return 0;
-}
-
-static int s5k3l6xx_enum_frame_size(struct v4l2_subdev *sd,
-				  struct v4l2_subdev_pad_config *cfg,
-				  struct v4l2_subdev_frame_size_enum *fse)
-{
-	int i;
-
-	if (fse->index > 0)
-		return -EINVAL;
-
-	i = ARRAY_SIZE(s5k3l6xx_frames);
-	while (--i)
-		if (fse->code == s5k3l6xx_frames[i].code)
-			break;
-	fse->code = s5k3l6xx_frames[i].code;
-	fse->min_width = s5k3l6xx_frames[i].width;
-	fse->max_width = s5k3l6xx_frames[i].width;
-	fse->max_height = s5k3l6xx_frames[i].height;
-	fse->min_height = s5k3l6xx_frames[i].height;
-
-	return 0;
-}
-
 static int s5k3l6xx_try_cis_format(struct v4l2_mbus_framefmt *mf)
 {
 	int pixfmt;
@@ -766,6 +734,48 @@ static int s5k3l6xx_try_cis_format(struct v4l2_mbus_framefmt *mf)
 	return pixfmt;
 }
 
+static int s5k3l6xx_init_cfg(struct v4l2_subdev *sd,
+			     struct v4l2_subdev_state *sd_state)
+{
+	struct v4l2_mbus_framefmt *mf;
+
+	mf = v4l2_subdev_get_try_format(sd, sd_state, PAD_CIS);
+	s5k3l6xx_try_cis_format(mf);
+	return 0;
+}
+
+static int s5k3l6xx_enum_mbus_code(struct v4l2_subdev *sd,
+				   struct v4l2_subdev_state *sd_state,
+				   struct v4l2_subdev_mbus_code_enum *code)
+{
+	if (code->index >= ARRAY_SIZE(s5k3l6xx_frames))
+		return -EINVAL;
+	code->code = s5k3l6xx_frames[code->index].code;
+	return 0;
+}
+
+static int s5k3l6xx_enum_frame_size(struct v4l2_subdev *sd,
+				    struct v4l2_subdev_state *sd_state,
+				    struct v4l2_subdev_frame_size_enum *fse)
+{
+	int i;
+
+	if (fse->index > 0)
+		return -EINVAL;
+
+	i = ARRAY_SIZE(s5k3l6xx_frames);
+	while (--i)
+		if (fse->code == s5k3l6xx_frames[i].code)
+			break;
+	fse->code = s5k3l6xx_frames[i].code;
+	fse->min_width = s5k3l6xx_frames[i].width;
+	fse->max_width = s5k3l6xx_frames[i].width;
+	fse->max_height = s5k3l6xx_frames[i].height;
+	fse->min_height = s5k3l6xx_frames[i].height;
+
+	return 0;
+}
+
 static void s5k3l6xx_get_current_cis_format(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *mf)
 {
 	struct s5k3l6xx *state = to_s5k3l6xx(sd);
@@ -778,13 +788,14 @@ static void s5k3l6xx_get_current_cis_format(struct v4l2_subdev *sd, struct v4l2_
 	mf->colorspace = V4L2_COLORSPACE_RAW;
 }
 
-static int s5k3l6xx_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg,
-			  struct v4l2_subdev_format *fmt)
+static int s5k3l6xx_get_fmt(struct v4l2_subdev *sd,
+			    struct v4l2_subdev_state *sd_state,
+			    struct v4l2_subdev_format *fmt)
 {
 	struct v4l2_mbus_framefmt *mf;
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-		mf = v4l2_subdev_get_try_format(sd, cfg, fmt->pad);
+		mf = v4l2_subdev_get_try_format(sd, sd_state, fmt->pad);
 		fmt->format = *mf;
 		dev_err(sd->dev, "try mf %dx%d", mf->width, mf->height);
 		return 0;
@@ -800,8 +811,9 @@ static int s5k3l6xx_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_confi
 	return 0;
 }
 
-static int s5k3l6xx_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg,
-			  struct v4l2_subdev_format *fmt)
+static int s5k3l6xx_set_fmt(struct v4l2_subdev *sd,
+			    struct v4l2_subdev_state *sd_state,
+			    struct v4l2_subdev_format *fmt)
 {
 	struct v4l2_mbus_framefmt *mf = &fmt->format;
 	struct s5k3l6xx *state = to_s5k3l6xx(sd);
@@ -810,7 +822,7 @@ static int s5k3l6xx_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_confi
 	mf->field = V4L2_FIELD_NONE;
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-		*v4l2_subdev_get_try_format(sd, cfg, fmt->pad) = *mf;
+		*v4l2_subdev_get_try_format(sd, sd_state, fmt->pad) = *mf;
 		return 0;
 	}
 
@@ -854,6 +866,7 @@ static const struct v4l2_subdev_pad_ops s5k3l6xx_cis_pad_ops = {
 };
 
 static const struct v4l2_subdev_pad_ops s5k3l6xx_pad_ops = {
+	.init_cfg		= s5k3l6xx_init_cfg,
 	.enum_mbus_code		= s5k3l6xx_enum_mbus_code,
 	.enum_frame_size	= s5k3l6xx_enum_frame_size,
 //	.enum_frame_interval	= s5k5baf_enum_frame_interval,
@@ -1019,25 +1032,8 @@ static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 /*
  * V4L2 subdev internal operations
  */
-static int s5k3l6xx_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
-{
-	struct v4l2_mbus_framefmt *mf;
-
-	mf = v4l2_subdev_get_try_format(sd, fh->pad, PAD_CIS);
-	s5k3l6xx_try_cis_format(mf);
-	return 0;
-}
-
 static const struct v4l2_subdev_ops s5k5baf_cis_subdev_ops = {
 	.pad	= &s5k3l6xx_cis_pad_ops,
-};
-
-static const struct v4l2_subdev_internal_ops s5k5baf_cis_subdev_internal_ops = {
-	.open = s5k3l6xx_open,
-};
-
-static const struct v4l2_subdev_internal_ops s5k3l6xx_subdev_internal_ops = {
-	.open = s5k3l6xx_open,
 };
 
 static const struct v4l2_subdev_core_ops s5k3l6xx_core_ops = {
@@ -1208,7 +1204,6 @@ static int s5k3l6xx_configure_subdevs(struct s5k3l6xx *state,
 		 i2c_adapter_id(c->adapter), c->addr);
 	v4l2_info(sd, "probe i2c %px", (void*)c);
 
-	sd->internal_ops = &s5k3l6xx_subdev_internal_ops;
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 
 	state->cis_pad.flags = MEDIA_PAD_FL_SOURCE;
