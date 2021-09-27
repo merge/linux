@@ -1369,8 +1369,9 @@
 
 	/* Dongwoon DW9714A - Voice Coil Motor for 13MP Camera */
 	vcm@c {
+		compatible = "dongwoon,dw9714";
 		reg = <0x0c>;
-		status = "disabled";
+		vcc-supply = <&reg_csi_1v8>;
 	};
 
 	/* Samsung S5K3L6XX - 13MP Rear-Facing Camera */
