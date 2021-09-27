@@ -1303,10 +1303,29 @@
 		>;
 	};
 
-	/* SKHynix YACG4D0C9SHC - 8MP Front-Facing Camera */
-	camera1@20 {
+	camera_front: camera-front@20 {
+		compatible = "hynix,hi846";
 		reg = <0x20>;
-		status = "disabled";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_csi1>;
+		clocks = <&clk IMX8MQ_CLK_CLKO2>;
+		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2>;
+		assigned-clock-rates = <25000000>;
+		reset-gpios = <&gpio1 25 GPIO_ACTIVE_LOW>;
+		vdda-supply = <&reg_vcam_2v8>;
+		vddd-supply = <&reg_vcam_1v2>;
+		vddio-supply = <&reg_csi_1v8>;
+		rotation = <90>;
+		orientation = <0>;
+
+		port {
+			camera1_ep: endpoint {
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64
+					<80000000 200000000 300000000>;
+				remote-endpoint = <&mipi1_sensor_ep>;
+			};
+		};
 	};
 
 	backlight@36 {
