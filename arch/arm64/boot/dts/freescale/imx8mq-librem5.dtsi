@@ -1048,7 +1048,7 @@
 		compatible = "rohm,bd71837";
 		reg = <0x4b>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_pmic>;
+		pinctrl-0 = <&pinctrl_pmic>, <&pinctrl_camera_pwr>;
 		clocks = <&pmic_osc>;
 		clock-names = "osc";
 		clock-output-names = "pmic_clk";
