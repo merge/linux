@@ -79,32 +79,12 @@
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_gpio_leds>, <&pinctrl_mute>, <&pinctrl_micsel>;
+		pinctrl-0 = <&pinctrl_gpio_leds>;
 
 		led1 {
 			label = "LED 1";
 			gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
-		};
-		csi_nrst {
-			label = "CSI_nRST";
-			gpios = <&gpio1 6 GPIO_ACTIVE_HIGH>;
-			default-state = "on";
-		};
-		csi_pdwn {
-			label = "CSI_PDWN";
-			gpios = <&gpio1 7 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-		};
-		spk_mute {
-			label = "SPK_MUTE";
-			gpios = <&gpio5 3 GPIO_ACTIVE_LOW>;
-			default-state = "off";
-		};
-		mic_sel {
-			label = "MIC_SEL";
-			gpios = <&gpio5 5 GPIO_ACTIVE_LOW>;
-			default-state = "on";
 		};
 	};
 
@@ -723,12 +703,6 @@
 	pinctrl_mute: mute {
 		fsl,pins = <
 		MX8MQ_IOMUXC_SPDIF_TX_GPIO5_IO3		0x86  /* MUTE */
-		>;
-	};
-
-	pinctrl_micsel: micselgrp {
-		fsl,pins = <
-		MX8MQ_IOMUXC_SPDIF_EXT_CLK_GPIO5_IO5	0xc6  /* mic sel */
 		>;
 	};
 
