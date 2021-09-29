@@ -315,18 +315,6 @@
 	};
 };
 
-&gpio5 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_mute>;
-
-	spk-mute-hog {
-		gpio-hog;
-		gpios = <3 GPIO_ACTIVE_LOW>;
-		output-low;
-		line-name = "spk-mute";
-	};
-};
-
 &i2c1 {
 	clock-frequency = <100000>;
 	pinctrl-names = "default";
@@ -724,12 +712,6 @@
 	};
 
 	pinctrl_spkamp: spkamp {
-		fsl,pins = <
-			MX8MQ_IOMUXC_SPDIF_TX_GPIO5_IO3		0x81  /* MUTE */
-		>;
-	};
-
-	pinctrl_mute: mute {
 		fsl,pins = <
 			MX8MQ_IOMUXC_SPDIF_TX_GPIO5_IO3		0x81  /* MUTE */
 		>;
