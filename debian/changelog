@@ -1,3 +1,10 @@
+linux-next-librem5 (5.15.0~rc4pureos1) byzantium; urgency=medium
+
+  [ Martin Kepplinger ]
+  * rebase the l5 tree onto v5.15-rc4
+
+ -- Martin Kepplinger <martin.kepplinger@puri.sm>  Mon, 04 Oct 2021 12:09:01 +0100
+
 linux-librem5 (5.13.19pureos1) byzantium; urgency=medium
 
   [ Dorota Czaplejewicz ]
