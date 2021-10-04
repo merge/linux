@@ -11,6 +11,7 @@
 };
 
 &bat {
+	maxim,battery-capacity = <4200000>; /* uAh */
 	maxim,rsns-microohm = <1667>;
 };
 

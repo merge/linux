@@ -38,6 +38,8 @@
  * @RFKILL_TYPE_GPS: switch is on a GPS device.
  * @RFKILL_TYPE_FM: switch is on a FM radio device.
  * @RFKILL_TYPE_NFC: switch is on an NFC device.
+ * @RFKILL_TYPE_CAMERA: switch is on a camera device.
+ * @RFKILL_TYPE_MIC: switch is for a microphone device.
  * @NUM_RFKILL_TYPES: number of defined rfkill types
  */
 enum rfkill_type {
@@ -50,6 +52,8 @@ enum rfkill_type {
 	RFKILL_TYPE_GPS,
 	RFKILL_TYPE_FM,
 	RFKILL_TYPE_NFC,
+	RFKILL_TYPE_CAMERA,
+	RFKILL_TYPE_MIC,
 	NUM_RFKILL_TYPES,
 };
 

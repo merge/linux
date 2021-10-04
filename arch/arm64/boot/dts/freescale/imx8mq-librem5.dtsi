@@ -7,8 +7,10 @@
 
 #include "dt-bindings/input/input.h"
 #include <dt-bindings/interrupt-controller/irq.h>
+#include "dt-bindings/leds/common.h"
 #include "dt-bindings/pwm/pwm.h"
 #include "dt-bindings/usb/pd.h"
+#include "dt-bindings/rfkill/rfkill.h"
 #include "imx8mq.dtsi"
 
 / {
@@ -36,7 +38,7 @@
 	gpio-keys {
 		compatible = "gpio-keys";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_keys>, <&pinctrl_hsw>;
+		pinctrl-0 = <&pinctrl_keys>;
 
 		vol-down {
 			label = "VOL_DOWN";
@@ -79,11 +81,10 @@
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_flash>, <&pinctrl_hub_nreset>,
+		pinctrl-0 = <&pinctrl_hub_nreset>,
 			<&pinctrl_sd_pwr>, <&pinctrl_charger>
 			, <&pinctrl_smc>,
 			<&pinctrl_gnss>,
-			<&pinctrl_flash_pwr>,
 			<&pinctrl_wwan_pwr>,
 			<&pinctrl_wwan>;
 
@@ -91,13 +92,6 @@
 			label = "chg_en";
 			gpios = <&gpio3 2 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
-		};
-
-		flash-strobe {
-			label = "flash_strobe";
-			gpios = <&gpio1 21 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-			linux,default-trigger = "flash";
 		};
 
 		flash-strobe {
@@ -117,12 +111,6 @@
 			label = "sd_en";
 			gpios = <&gpio1 3 GPIO_ACTIVE_HIGH>;
 			default-state = "on";
-		};
-
-		flash-en {
-			label = "flash_en";
-			gpios = <&gpio1 23 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
 		};
 
 		gnss-nreset {
@@ -303,6 +291,36 @@
 		enable-active-high;
 		vin-supply = <&reg_vdd_3v3>;
 		regulator-always-on;
+	};
+
+	rfkill-hks {
+		compatible = "rfkill-hks";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_hsw>;
+
+		mic-hks {
+			gpios = <&gpio4 1 GPIO_ACTIVE_LOW>;
+			name = "mic-hks";
+			type = <RFKILL_MIC>;
+		};
+
+		camera-hks {
+			gpios = <&gpio4 1 GPIO_ACTIVE_LOW>;
+			name = "camera-hks";
+			type = <RFKILL_CAMERA>;
+		};
+
+		wlan-hks {
+			gpios = <&gpio4 10 GPIO_ACTIVE_LOW>;
+			name = "wlan-hks";
+			type = <RFKILL_WLAN>;
+		};
+
+		wwan-hks {
+			gpios = <&gpio4 0 GPIO_ACTIVE_LOW>;
+			name = "wwan-hks";
+			type = <RFKILL_WWAN>;
+		};
 	};
 
 	sound {
@@ -584,11 +602,6 @@
 		fsl,pins = <
 			/* FLASH_STROBE */
 			MX8MQ_IOMUXC_ENET_TD0_GPIO1_IO21	0x83
-		>;
-	};
-
-	pinctrl_flash_pwr: flashpwrgrp {
-		fsl,pins = <
 			/* FLASH_EN */
 			MX8MQ_IOMUXC_ENET_TXC_GPIO1_IO23	0x83
 		>;
@@ -1242,25 +1255,24 @@
 	};
 
 	flash@53 {
-		compatible = "lm3560";
-		reg = <0x53>; /* A6 ?? */
+		compatible = "ti,lm3560";
+		pinctrl-0 = <&pinctrl_flash>;
+		pinctrl-names = "default";
 		#address-cells = <1>;
 		#size-cells = <0>;
-
-		flash@0 {
-			reg = <0x0>;
-			flash-timeout-us = <150000>;
-			flash-max-microamp = <320000>;
-			led-max-microamp = <60000>;
-			label = "lm3560:flash";
+		reg = <0x53>;
+		enable-gpios = <&gpio1 23 GPIO_ACTIVE_HIGH>;
+		/* TODO */
+		//strobe-gpios = <&gpio1 2 GPIO_ACTIVE_HIGH>;
+		vin-supply = <&reg_vsys_3v4>;
+		torch: led@0 {
+			reg = <1>;
+			function = LED_FUNCTION_TORCH;
+			color = <LED_COLOR_ID_WHITE>;
+			led-max-microamp = <93750>;
+			flash-max-microamp = <875000>;
+			flash-max-timeout-us = <1024000>;
 		};
-
-		torch@1 {
-			reg = <0x1>;
-			led-max-microamp = <10000>;
-			label = "lm3560:torch";
-		};
-
 	};
 
 	proximity: prox@60 {
@@ -1420,6 +1432,7 @@
 		maxim,over-heat-temp = <700>;
 		maxim,over-volt = <4500>;
 		maxim,rsns-microohm = <5000>;
+		maxim,termination-current = <160000>;
 		maxim,vchg-4V2;
 	};
 
@@ -1431,12 +1444,15 @@
 		interrupt-parent = <&gpio3>;
 		interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
 		phys = <&usb3_phy0>;
-		ti,precharge-current = <130000>; /* uA */
+		ti,battery-regulation-voltage = <4208000>; /* uV */
+		ti,termination-current = <128000>;  /* uA */
+		ti,precharge-current = <128000>; /* uA */
 		ti,minimum-sys-voltage = <3700000>; /* uV */
 		ti,boost-voltage = <5000000>; /* uV */
-		ti,boost-max-current = <500000>; /* uA */
+		ti,boost-max-current = <1500000>; /* uA */
 		ti,use-vinmin-threshold = <1>; /* enable VINDPM */
 		ti,vinmin-threshold = <3900000>; /* uV */
+		ti,auto_dpdm_disable;
 		monitored-battery = <&bat>;
 		power-supplies = <&typec_pd>;
 		otg-gpios = <&gpio3 4 GPIO_ACTIVE_HIGH>;
@@ -1653,6 +1669,7 @@
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
+	snps,parkmode-disable-ss-quirk;
 
 	/* Microchip USB2642 */
 	hub@1 {
