@@ -671,6 +671,7 @@ static int lenovo_event_cptkbd(struct hid_device *hdev,
 	/* "wheel" scroll events */
 	if (usage->type == EV_REL && (usage->code == REL_WHEEL ||
 			usage->code == REL_HWHEEL)) {
+pr_emerg("%s: scroll event\n", __func__);
 		/* Scroll events disable middle-click event */
 		cptkbd_data->middlebutton_state = 2;
 		return 0;
@@ -679,10 +680,13 @@ static int lenovo_event_cptkbd(struct hid_device *hdev,
 	/* Middle click events */
 	if (usage->type == EV_KEY && usage->code == BTN_MIDDLE) {
 		if (value == 1) {
+pr_emerg("%s: middle button event value / state 1\n", __func__);
 			cptkbd_data->middlebutton_state = 1;
 		} else if (value == 0) {
+pr_emerg("%s: middle button event value / state 0\n", __func__);
 			if (cptkbd_data->middlebutton_state == 1) {
 				/* No scrolling inbetween, send middle-click */
+pr_emerg("%s: middle button event finished without scrolling\n", __func__);
 				input_event(field->hidinput->input,
 					EV_KEY, BTN_MIDDLE, 1);
 				input_sync(field->hidinput->input);
@@ -692,6 +696,7 @@ static int lenovo_event_cptkbd(struct hid_device *hdev,
 			}
 			cptkbd_data->middlebutton_state = 0;
 		}
+pr_emerg("%s: ERROR: value = %d\n", __func__, value);
 		return 1;
 	}
 
@@ -712,6 +717,8 @@ static int lenovo_event(struct hid_device *hdev, struct hid_field *field,
 {
 	if (!hid_get_drvdata(hdev))
 		return 0;
+
+pr_emerg("%s: start: code: %d val: %d\n", __func__, usage->code, value);
 
 	switch (hdev->product) {
 	case USB_DEVICE_ID_LENOVO_CUSBKBD:
@@ -1224,6 +1231,7 @@ static int lenovo_probe(struct hid_device *hdev,
 {
 	int ret;
 
+pr_emerg("%s: start\n", __func__);
 	ret = hid_parse(hdev);
 	if (ret) {
 		hid_err(hdev, "hid_parse failed\n");
@@ -1304,6 +1312,7 @@ static void lenovo_remove_tp10ubkbd(struct hid_device *hdev)
 
 static void lenovo_remove(struct hid_device *hdev)
 {
+pr_emerg("%s: start\n", __func__);
 	switch (hdev->product) {
 	case USB_DEVICE_ID_LENOVO_TPKBD:
 		lenovo_remove_tpkbd(hdev);
@@ -1326,6 +1335,7 @@ static void lenovo_remove(struct hid_device *hdev)
 static int lenovo_input_configured(struct hid_device *hdev,
 		struct hid_input *hi)
 {
+pr_emerg("%s: start\n", __func__);
 	switch (hdev->product) {
 		case USB_DEVICE_ID_LENOVO_TPKBD:
 		case USB_DEVICE_ID_LENOVO_CUSBKBD:
@@ -1342,6 +1352,24 @@ static int lenovo_input_configured(struct hid_device *hdev,
 	}
 
 	return 0;
+}
+
+static int __maybe_unused lenovo_resume(struct hid_device *hdev)
+{
+	struct lenovo_drvdata *cptkbd_data = hid_get_drvdata(hdev);
+	int ret = 0;
+
+	if (cptkbd_data)
+		pr_emerg("%s: start. doing nothing. middlebutton_state is: %d\n",
+			 __func__, cptkbd_data->middlebutton_state);
+
+#if 0
+	ret = lenovo_send_cmd_cptkbd(hdev, 0x09, 0x01);
+	if (ret)
+		hid_warn(hdev, "Failed to switch middle button: %d\n", ret);
+#endif
+
+	return ret;
 }
 
 
@@ -1380,6 +1408,9 @@ static struct hid_driver lenovo_driver = {
 	.raw_event = lenovo_raw_event,
 	.event = lenovo_event,
 	.report_fixup = lenovo_report_fixup,
+#ifdef CONFIG_PM
+	.resume = lenovo_resume,
+#endif
 };
 module_hid_driver(lenovo_driver);
 
